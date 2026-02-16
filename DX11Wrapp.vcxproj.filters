@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="디바이스">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="렌더링">
+      <UniqueIdentifier>{B1C2D3E4-2222-3333-4444-555566667777}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="텍스처">
+      <UniqueIdentifier>{B1C2D3E4-2222-3333-4444-555566668888}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="프레임워크">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 디바이스 헤더 -->
+    <ClInclude Include="DX11Def.h">
+      <Filter>디바이스</Filter>
+    </ClInclude>
+    <ClInclude Include="DX11Device.h">
+      <Filter>디바이스</Filter>
+    </ClInclude>
+    <!-- 렌더링 헤더 -->
+    <ClInclude Include="DX11SpriteEngine.h">
+      <Filter>렌더링</Filter>
+    </ClInclude>
+    <!-- 텍스처 헤더 -->
+    <ClInclude Include="DX11Texture.h">
+      <Filter>텍스처</Filter>
+    </ClInclude>
+    <!-- 프레임워크 헤더 -->
+    <ClInclude Include="framework.h">
+      <Filter>프레임워크</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 디바이스 소스 -->
+    <ClCompile Include="DX11Device.cpp">
+      <Filter>디바이스</Filter>
+    </ClCompile>
+    <!-- 렌더링 소스 -->
+    <ClCompile Include="DX11SpriteEngine.cpp">
+      <Filter>렌더링</Filter>
+    </ClCompile>
+    <!-- 텍스처 소스 -->
+    <ClCompile Include="DX11Texture.cpp">
+      <Filter>텍스처</Filter>
+    </ClCompile>
+    <!-- 프레임워크 소스 -->
+  </ItemGroup>
+</Project>
