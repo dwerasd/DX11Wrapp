@@ -18,6 +18,13 @@ namespace dx11
 		Microsoft::WRL::ComPtr<ID3D11SamplerState>     m_pLinearSampler;
 		Microsoft::WRL::ComPtr<ID3D11RasterizerState>  m_pRasterState;
 
+		// 3D 추가: 뎁스 스텐실
+		Microsoft::WRL::ComPtr<ID3D11Texture2D>         m_pDepthStencilTex;
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilView>  m_pDSV;
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_pDepthEnabled;
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_pDepthDisabled;
+		Microsoft::WRL::ComPtr<ID3D11RasterizerState>   m_pRasterCullBack;
+
 		HWND m_hWnd;
 		UINT m_uWidth;
 		UINT m_uHeight;
@@ -26,6 +33,7 @@ namespace dx11
 
 		bool createSwapChain();
 		bool createRTV();
+		bool createDepthStencil();
 		void setViewport();
 
 	public:
@@ -47,5 +55,12 @@ namespace dx11
 		UINT GetHeight() const { return m_uHeight; }
 		bool IsInitialized() const { return m_bInitialized; }
 		void SetLinearSampler(bool _bLinear);
+
+		// 스테이트 전환
+		void SetDepthEnabled(bool _bEnabled);
+		void SetCullBack(bool _bCullBack);
+		void Set2DState();		// 2D 렌더링용 스테이트 (뎁스 OFF, 컬링 OFF, 알파 블렌드)
+		ID3D11RenderTargetView* GetRTV() const { return m_pRTV.Get(); }
+		ID3D11DepthStencilView* GetDSV() const { return m_pDSV.Get(); }
 	};
 } // namespace dx11

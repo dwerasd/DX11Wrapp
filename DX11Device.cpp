@@ -125,6 +125,24 @@ namespace dx11
 			return false;
 		}
 
+		// 뎁스 스텐실
+		if (!createDepthStencil())
+			return false;
+
+		// 3D용 래스터라이저 (백페이스 컬링)
+		D3D11_RASTERIZER_DESC rasterCullDesc{};
+		rasterCullDesc.FillMode = D3D11_FILL_SOLID;
+		rasterCullDesc.CullMode = D3D11_CULL_BACK;
+		rasterCullDesc.FrontCounterClockwise = FALSE;
+		rasterCullDesc.DepthClipEnable = TRUE;
+
+		hr = m_pDevice->CreateRasterizerState(&rasterCullDesc, &m_pRasterCullBack);
+		if (FAILED(hr))
+		{
+			DBGPRINT(L"[DX11] RasterCullBack 생성 실패: 0x%08X", hr);
+			return false;
+		}
+
 		setViewport();
 		m_bInitialized = true;
 		DBGPRINT(L"[DX11] 디바이스 초기화 완료: %ux%u", m_uWidth, m_uHeight);
@@ -204,6 +222,11 @@ namespace dx11
 		if (m_pContext)
 			m_pContext->ClearState();
 
+		m_pRasterCullBack.Reset();
+		m_pDepthDisabled.Reset();
+		m_pDepthEnabled.Reset();
+		m_pDSV.Reset();
+		m_pDepthStencilTex.Reset();
 		m_pRasterState.Reset();
 		m_pPointSampler.Reset();
 		m_pAlphaBlend.Reset();
@@ -220,7 +243,10 @@ namespace dx11
 	{
 		const float aClearColor[4] = { _fR, _fG, _fB, _fA };
 		m_pContext->ClearRenderTargetView(m_pRTV.Get(), aClearColor);
-		m_pContext->OMSetRenderTargets(1, m_pRTV.GetAddressOf(), nullptr);
+		if (m_pDSV)
+			m_pContext->ClearDepthStencilView(m_pDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		m_pContext->OMSetRenderTargets(1, m_pRTV.GetAddressOf(), m_pDSV.Get());
+		m_pContext->OMSetDepthStencilState(m_pDepthDisabled.Get(), 0);
 		m_pContext->OMSetBlendState(m_pAlphaBlend.Get(), nullptr, 0xFFFFFFFF);
 		m_pContext->RSSetState(m_pRasterState.Get());
 		m_pContext->PSSetSamplers(0, 1, m_pPointSampler.GetAddressOf());
@@ -242,6 +268,8 @@ namespace dx11
 
 		m_pContext->OMSetRenderTargets(0, nullptr, nullptr);
 		m_pRTV.Reset();
+		m_pDSV.Reset();
+		m_pDepthStencilTex.Reset();
 
 		const HRESULT hr = m_pSwapChain->ResizeBuffers(0, _uWidth, _uHeight, DXGI_FORMAT_UNKNOWN, 0);
 		if (FAILED(hr))
@@ -253,8 +281,88 @@ namespace dx11
 		if (!createRTV())
 			return false;
 
+		if (!createDepthStencil())
+			return false;
+
 		setViewport();
 		return true;
+	}
+
+	bool C_DX11_DEVICE::createDepthStencil()
+	{
+		D3D11_TEXTURE2D_DESC dsDesc{};
+		dsDesc.Width = m_uWidth;
+		dsDesc.Height = m_uHeight;
+		dsDesc.MipLevels = 1;
+		dsDesc.ArraySize = 1;
+		dsDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		dsDesc.SampleDesc.Count = 1;
+		dsDesc.SampleDesc.Quality = 0;
+		dsDesc.Usage = D3D11_USAGE_DEFAULT;
+		dsDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+		HRESULT hr = m_pDevice->CreateTexture2D(&dsDesc, nullptr, &m_pDepthStencilTex);
+		if (FAILED(hr))
+		{
+			DBGPRINT(L"[DX11] 뎁스 텍스처 생성 실패: 0x%08X", hr);
+			return false;
+		}
+
+		hr = m_pDevice->CreateDepthStencilView(m_pDepthStencilTex.Get(), nullptr, &m_pDSV);
+		if (FAILED(hr))
+		{
+			DBGPRINT(L"[DX11] DSV 생성 실패: 0x%08X", hr);
+			return false;
+		}
+
+		// 뎁스 활성 스테이트
+		if (!m_pDepthEnabled)
+		{
+			D3D11_DEPTH_STENCIL_DESC depthOnDesc{};
+			depthOnDesc.DepthEnable = TRUE;
+			depthOnDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+			depthOnDesc.DepthFunc = D3D11_COMPARISON_LESS;
+			depthOnDesc.StencilEnable = FALSE;
+
+			hr = m_pDevice->CreateDepthStencilState(&depthOnDesc, &m_pDepthEnabled);
+			if (FAILED(hr)) return false;
+		}
+
+		// 뎁스 비활성 스테이트
+		if (!m_pDepthDisabled)
+		{
+			D3D11_DEPTH_STENCIL_DESC depthOffDesc{};
+			depthOffDesc.DepthEnable = FALSE;
+			depthOffDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+			depthOffDesc.StencilEnable = FALSE;
+
+			hr = m_pDevice->CreateDepthStencilState(&depthOffDesc, &m_pDepthDisabled);
+			if (FAILED(hr)) return false;
+		}
+
+		return true;
+	}
+
+	void C_DX11_DEVICE::SetDepthEnabled(bool _bEnabled)
+	{
+		if (!m_pContext) return;
+		m_pContext->OMSetDepthStencilState(
+			_bEnabled ? m_pDepthEnabled.Get() : m_pDepthDisabled.Get(), 0);
+	}
+
+	void C_DX11_DEVICE::SetCullBack(bool _bCullBack)
+	{
+		if (!m_pContext) return;
+		m_pContext->RSSetState(_bCullBack ? m_pRasterCullBack.Get() : m_pRasterState.Get());
+	}
+
+	void C_DX11_DEVICE::Set2DState()
+	{
+		if (!m_pContext) return;
+		m_pContext->OMSetDepthStencilState(m_pDepthDisabled.Get(), 0);
+		m_pContext->OMSetBlendState(m_pAlphaBlend.Get(), nullptr, 0xFFFFFFFF);
+		m_pContext->RSSetState(m_pRasterState.Get());
+		m_pContext->PSSetSamplers(0, 1, m_pPointSampler.GetAddressOf());
 	}
 
 	void C_DX11_DEVICE::SetLinearSampler(bool _bLinear)

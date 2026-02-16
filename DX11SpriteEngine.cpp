@@ -414,6 +414,46 @@ namespace dx11
 		m_Stats.m_uTextureChanges = 0;
 	}
 
+	void C_DX11_SPRITE_ENGINE::Begin2D()
+	{
+		ID3D11DeviceContext* const pCtx = m_Device.GetContext();
+
+		// 2D 스테이트: 뎁스 OFF, 컬링 OFF, 알파 블렌드, 포인트 샘플러
+		m_Device.Set2DState();
+
+		// 상수 버퍼 갱신
+		D3D11_MAPPED_SUBRESOURCE mapped{};
+		const HRESULT hr = pCtx->Map(m_pConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+		if (SUCCEEDED(hr))
+		{
+			CBPerFrame* const pCB = static_cast<CBPerFrame*>(mapped.pData);
+			pCB->m_fInvScreenWidth = 1.0f / static_cast<float>(m_Device.GetWidth());
+			pCB->m_fInvScreenHeight = 1.0f / static_cast<float>(m_Device.GetHeight());
+			pCB->m_fPad[0] = 0.0f;
+			pCB->m_fPad[1] = 0.0f;
+			pCtx->Unmap(m_pConstantBuffer.Get(), 0);
+		}
+
+		// 2D 파이프라인 바인드
+		pCtx->IASetInputLayout(m_pInputLayout.Get());
+		pCtx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		constexpr UINT uVertStride = sizeof(float) * 2;
+		constexpr UINT uVertOffset = 0;
+		ID3D11Buffer* const pVB = m_pVertexBuffer.Get();
+		pCtx->IASetVertexBuffers(0, 1, &pVB, &uVertStride, &uVertOffset);
+		pCtx->IASetIndexBuffer(m_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+		pCtx->VSSetShader(m_pVS.Get(), nullptr, 0);
+		pCtx->PSSetShader(m_pPS.Get(), nullptr, 0);
+		pCtx->VSSetConstantBuffers(0, 1, m_pConstantBuffer.GetAddressOf());
+
+		m_uInstanceCount = 0;
+		m_hCurrentTexture = INVALID_TEXTURE;
+		m_Stats.m_uDrawCallsPerFrame = 0;
+		m_Stats.m_uSpritesPerFrame = 0;
+		m_Stats.m_uTextureChanges = 0;
+	}
+
 	void C_DX11_SPRITE_ENGINE::Draw(
 		TextureHandle _hTex,
 		float _fX, float _fY, float _fW, float _fH,

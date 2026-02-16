@@ -82,6 +82,7 @@ namespace dx11
 		// 렌더링
 		//========================================================================
 		void BeginFrame(float _fR, float _fG, float _fB, float _fA);
+		void Begin2D();		// 3D 렌더링 후 2D 전환 (클리어 없이 2D 파이프라인 세팅)
 		void Draw(TextureHandle _hTex,
 			float _fX, float _fY, float _fW, float _fH,
 			float _fU0, float _fV0, float _fU1, float _fV1,

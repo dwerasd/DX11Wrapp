@@ -267,12 +267,14 @@
   <ItemGroup>
     <ClInclude Include="DX11Def.h" />
     <ClInclude Include="DX11Device.h" />
+    <ClInclude Include="DX11MeshRenderer.h" />
     <ClInclude Include="DX11SpriteEngine.h" />
     <ClInclude Include="DX11Texture.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DX11Device.cpp" />
+    <ClCompile Include="DX11MeshRenderer.cpp" />
     <ClCompile Include="DX11SpriteEngine.cpp" />
     <ClCompile Include="DX11Texture.cpp" />
   </ItemGroup>

@@ -63,6 +63,41 @@ namespace dx11
 	};
 	static_assert(sizeof(CBPerFrame) == 16, "CBPerFrame 16바이트 정렬 필수");
 
+	//========================================================================
+	// 3D 메시 타입
+	//========================================================================
+
+	// 3D 정점 (위치 + 법선 + UV, 32바이트)
+	struct MeshVertex
+	{
+		DirectX::XMFLOAT3 m_Position;	// 12B
+		DirectX::XMFLOAT3 m_Normal;		// 12B
+		DirectX::XMFLOAT2 m_UV;		// 8B
+	};
+	static_assert(sizeof(MeshVertex) == 32, "MeshVertex 32바이트 필수");
+
+	// 메시 핸들
+	using MeshHandle = int32_t;
+	inline constexpr MeshHandle INVALID_MESH = -1;
+
+	// 3D 프레임 상수 (뷰프로젝션 + 라이팅, 96바이트)
+	struct CB3DPerFrame
+	{
+		DirectX::XMFLOAT4X4 m_ViewProj;	// 64B
+		DirectX::XMFLOAT3  m_LightDir;		// 12B
+		float              m_Pad0;			// 4B
+		DirectX::XMFLOAT3  m_CameraPos;	// 12B
+		float              m_Pad1;			// 4B
+	};
+	static_assert(sizeof(CB3DPerFrame) == 96, "CB3DPerFrame 96바이트 필수");
+
+	// 3D 오브젝트 상수 (월드 행렬, 64바이트)
+	struct CB3DPerObject
+	{
+		DirectX::XMFLOAT4X4 m_World;		// 64B
+	};
+	static_assert(sizeof(CB3DPerObject) == 64, "CB3DPerObject 64바이트 필수");
+
 	// 엔진 통계
 	struct EngineStats
 	{
