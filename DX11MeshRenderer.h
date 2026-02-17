@@ -9,7 +9,6 @@
 
 namespace dx11
 {
-
 	class C_DX11_MESH_RENDERER
 	{
 	private:
