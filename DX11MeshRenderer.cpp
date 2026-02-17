@@ -41,10 +41,10 @@ struct VS_OUTPUT
 VS_OUTPUT main(VS_INPUT input)
 {
 	VS_OUTPUT output;
-	float4 worldPos = mul(float4(input.Pos, 1.0), g_World);
-	output.Pos = mul(worldPos, g_ViewProj);
+	float4 worldPos = mul(g_World, float4(input.Pos, 1.0));
+	output.Pos = mul(g_ViewProj, worldPos);
 	output.WorldPos = worldPos.xyz;
-	output.Normal = normalize(mul(input.Normal, (float3x3)g_World));
+	output.Normal = normalize(mul((float3x3)g_World, input.Normal));
 	output.UV = input.UV;
 	return output;
 }
