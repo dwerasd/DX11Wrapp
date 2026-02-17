@@ -71,19 +71,47 @@ struct PS_INPUT
 	float2 UV       : TEXCOORD2;
 };
 
+// ACES 필름 톤매핑
+float3 ACESFilm(float3 x)
+{
+	float a = 2.51; float b = 0.03;
+	float c = 2.43; float d = 0.59; float e = 0.14;
+	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+}
+
 float4 main(PS_INPUT input) : SV_TARGET
 {
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	float3 color = pow(texColor.rgb, 2.2);
+
 	float3 N = normalize(input.Normal);
 	float3 L = normalize(-g_LightDir);
-	float NdotL = saturate(dot(N, L));
+	float3 V = normalize(g_CameraPos - input.WorldPos);
+	float NdotL = dot(N, L);
 
-	float3 ambient = float3(0.15, 0.15, 0.2);
-	float3 diffuse = float3(1.0, 1.0, 1.0) * NdotL;
+	// 반구형 앰비언트
+	float3 skyColor = float3(0.12, 0.15, 0.25);
+	float3 groundColor = float3(0.10, 0.08, 0.05);
+	float hemiBlend = N.y * 0.5 + 0.5;
+	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
 
-	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
-	float3 finalColor = texColor.rgb * (ambient + diffuse);
+	// Wrap 디퓨즈
+	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
+	float3 lit = color * (ambient + wrapDiffuse * float3(1.0, 0.95, 0.9));
 
-	return float4(finalColor, texColor.a);
+	// 림 라이팅 (프레넬 외곽 빛)
+	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
+	lit += rim * float3(0.08, 0.10, 0.15) * wrapDiffuse;
+
+	// 거리 안개
+	float dist = length(g_CameraPos - input.WorldPos);
+	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
+	float3 fogColor = float3(0.40, 0.50, 0.62);
+	lit = lerp(lit, fogColor, fogFactor);
+
+	lit *= 1.8;
+	lit = ACESFilm(lit);
+	return float4(lit, texColor.a);
 }
 )HLSL";
 
@@ -173,19 +201,47 @@ struct PS_INPUT
 	float2 UV       : TEXCOORD2;
 };
 
+// ACES 필름 톤매핑
+float3 ACESFilm(float3 x)
+{
+	float a = 2.51; float b = 0.03;
+	float c = 2.43; float d = 0.59; float e = 0.14;
+	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+}
+
 float4 main(PS_INPUT input) : SV_TARGET
 {
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	float3 color = pow(texColor.rgb, 2.2);
+
 	float3 N = normalize(input.Normal);
 	float3 L = normalize(-g_LightDir);
-	float NdotL = saturate(dot(N, L));
+	float3 V = normalize(g_CameraPos - input.WorldPos);
+	float NdotL = dot(N, L);
 
-	float3 ambient = float3(0.15, 0.15, 0.2);
-	float3 diffuse = float3(1.0, 1.0, 1.0) * NdotL;
+	// 반구형 앰비언트
+	float3 skyColor = float3(0.12, 0.15, 0.25);
+	float3 groundColor = float3(0.10, 0.08, 0.05);
+	float hemiBlend = N.y * 0.5 + 0.5;
+	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
 
-	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
-	float3 finalColor = texColor.rgb * (ambient + diffuse);
+	// Wrap 디퓨즈
+	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
+	float3 lit = color * (ambient + wrapDiffuse * float3(1.0, 0.95, 0.9));
 
-	return float4(finalColor, texColor.a);
+	// 림 라이팅 (프레넬 외곽 빛)
+	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
+	lit += rim * float3(0.08, 0.10, 0.15) * wrapDiffuse;
+
+	// 거리 안개
+	float dist = length(g_CameraPos - input.WorldPos);
+	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
+	float3 fogColor = float3(0.40, 0.50, 0.62);
+	lit = lerp(lit, fogColor, fogFactor);
+
+	lit *= 1.8;
+	lit = ACESFilm(lit);
+	return float4(lit, texColor.a);
 }
 )HLSL";
 
