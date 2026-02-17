@@ -76,9 +76,23 @@ namespace dx11
 	};
 	static_assert(sizeof(MeshVertex) == 32, "MeshVertex 32바이트 필수");
 
+	// 스킨드 메시 정점 (위치 + 법선 + UV + 본 인덱스 + 본 웨이트, 52바이트)
+	struct SkinnedMeshVertex
+	{
+		DirectX::XMFLOAT3 m_Position;      // 12B
+		DirectX::XMFLOAT3 m_Normal;        // 12B
+		DirectX::XMFLOAT2 m_UV;            // 8B
+		uint8_t           m_BoneIndices[4]; // 4B  (BLENDINDICES, R8G8B8A8_UINT)
+		DirectX::XMFLOAT4 m_BoneWeights;   // 16B (BLENDWEIGHT)
+	};
+	static_assert(sizeof(SkinnedMeshVertex) == 52, "SkinnedMeshVertex 52바이트 필수");
+
 	// 메시 핸들
 	using MeshHandle = int32_t;
 	inline constexpr MeshHandle INVALID_MESH = -1;
+
+	// 최대 본 수 (상수 버퍼 크기 제약)
+	inline constexpr uint32_t MAX_BONES = 54;
 
 	// 3D 프레임 상수 (뷰프로젝션 + 라이팅, 96바이트)
 	struct CB3DPerFrame
@@ -97,6 +111,13 @@ namespace dx11
 		DirectX::XMFLOAT4X4 m_World;		// 64B
 	};
 	static_assert(sizeof(CB3DPerObject) == 64, "CB3DPerObject 64바이트 필수");
+
+	// 스킨드 메시 본 행렬 상수 (b2, 54 * 64B = 3456B)
+	struct CB3DBones
+	{
+		DirectX::XMFLOAT4X4 m_Bones[MAX_BONES];
+	};
+	static_assert(sizeof(CB3DBones) == MAX_BONES * 64, "CB3DBones 크기 검증");
 
 	// 엔진 통계
 	struct EngineStats
