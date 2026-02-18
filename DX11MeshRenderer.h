@@ -44,6 +44,9 @@ namespace dx11
 		// 기본 1x1 흰색 텍스처 (텍스처 미지정 시 사용)
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_pWhiteSRV;
 
+		// LINEAR + WRAP 샘플러 (UV 타일링 지원 — 존 오브젝트 등)
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_pWrapSampler;
+
 		bool m_bInitialized;
 
 		bool compileShaders();

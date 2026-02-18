@@ -303,6 +303,26 @@ namespace dx11
 		if (!createDefaultTexture())
 			return false;
 
+		// LINEAR + WRAP 샘플러 생성 (UV 타일링 지원)
+		{
+			D3D11_SAMPLER_DESC wrapDesc{};
+			wrapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			wrapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+			wrapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+			wrapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+			wrapDesc.MaxAnisotropy = 1;
+			wrapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+			wrapDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+			const HRESULT hrSampler = m_pDevice->GetDevice()->CreateSamplerState(
+				&wrapDesc, &m_pWrapSampler);
+			if (FAILED(hrSampler))
+			{
+				DBGPRINT(L"[DX11Mesh] WRAP 샘플러 생성 실패: 0x%08X", hrSampler);
+				return false;
+			}
+		}
+
 		m_bInitialized = true;
 		DBGPRINT(L"[DX11Mesh] 메시 렌더러 초기화 완료");
 		return true;
@@ -313,6 +333,7 @@ namespace dx11
 		if (!m_bInitialized) return;
 
 		m_vMeshes.clear();
+		m_pWrapSampler.Reset();
 		m_pWhiteSRV.Reset();
 		m_pCBBones.Reset();
 		m_pCBPerObject.Reset();
@@ -633,7 +654,12 @@ namespace dx11
 		// 3D 스테이트
 		m_pDevice->SetDepthEnabled(true);
 		m_pDevice->SetCullBack(true);
-		m_pDevice->SetLinearSampler(true);
+
+		// 알파 블렌드 비활성화 (불투명 3D 렌더링)
+		pCtx->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+
+		// WRAP 샘플러 바인딩 (UV 타일링 — CLAMP 대신)
+		pCtx->PSSetSamplers(0, 1, m_pWrapSampler.GetAddressOf());
 
 		// Per-Frame 상수 버퍼
 		D3D11_MAPPED_SUBRESOURCE mapped{};
