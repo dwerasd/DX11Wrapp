@@ -63,6 +63,16 @@ cbuffer CBPerFrame : register(b0)
 	float    g_Pad1;
 };
 
+cbuffer CBEnvironment : register(b5)
+{
+	float3 g_Ambient;        float g_ShadowLuminosity;
+	float3 g_FogColor;       float g_FogNear;
+	float3 g_DiffuseColor;   float g_FogFar;
+	float3 g_SkyZenith;      float g_FogHeight;
+	float3 g_SkyHorizon;     float _envPad0;
+	float3 g_SkyGround;      float _envPad1;
+};
+
 struct PS_INPUT
 {
 	float4 Pos      : SV_POSITION;
@@ -89,15 +99,15 @@ float4 main(PS_INPUT input) : SV_TARGET
 	float3 V = normalize(g_CameraPos - input.WorldPos);
 	float NdotL = dot(N, L);
 
-	// 반구형 앰비언트
-	float3 skyColor = float3(0.12, 0.15, 0.25);
-	float3 groundColor = float3(0.10, 0.08, 0.05);
+	// 반구형 앰비언트 (환경 데이터 기반)
+	float3 skyColor = g_Ambient * 1.5 + float3(0.03, 0.06, 0.10);
+	float3 groundColor = g_Ambient * 0.8 + float3(0.05, 0.05, 0.06);
 	float hemiBlend = N.y * 0.5 + 0.5;
 	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
 
 	// Wrap 디퓨즈
 	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
-	float3 lit = color * (ambient + wrapDiffuse * float3(1.0, 0.95, 0.9));
+	float3 lit = color * (ambient + wrapDiffuse * g_DiffuseColor);
 
 	// 림 라이팅 (프레넬 외곽 빛)
 	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
@@ -105,12 +115,11 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 	// 거리 안개
 	float dist = length(g_CameraPos - input.WorldPos);
-	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
-	float heightFog = saturate(1.0 - input.WorldPos.y / 600.0);
+	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / g_FogHeight);
 	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
 
-	float3 fogColor = float3(0.40, 0.50, 0.62);
-	lit = lerp(lit, fogColor, fogFactor);
+	lit = lerp(lit, g_FogColor, fogFactor);
 
 	lit *= 1.8;
 	lit = ACESFilm(lit);
@@ -196,6 +205,16 @@ cbuffer CBPerFrame : register(b0)
 	float    g_Pad1;
 };
 
+cbuffer CBEnvironment : register(b5)
+{
+	float3 g_Ambient;        float g_ShadowLuminosity;
+	float3 g_FogColor;       float g_FogNear;
+	float3 g_DiffuseColor;   float g_FogFar;
+	float3 g_SkyZenith;      float g_FogHeight;
+	float3 g_SkyHorizon;     float _envPad0;
+	float3 g_SkyGround;      float _envPad1;
+};
+
 struct PS_INPUT
 {
 	float4 Pos      : SV_POSITION;
@@ -222,15 +241,15 @@ float4 main(PS_INPUT input) : SV_TARGET
 	float3 V = normalize(g_CameraPos - input.WorldPos);
 	float NdotL = dot(N, L);
 
-	// 반구형 앰비언트
-	float3 skyColor = float3(0.12, 0.15, 0.25);
-	float3 groundColor = float3(0.10, 0.08, 0.05);
+	// 반구형 앰비언트 (환경 데이터 기반)
+	float3 skyColor = g_Ambient * 1.5 + float3(0.03, 0.06, 0.10);
+	float3 groundColor = g_Ambient * 0.8 + float3(0.05, 0.05, 0.06);
 	float hemiBlend = N.y * 0.5 + 0.5;
 	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
 
 	// Wrap 디퓨즈
 	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
-	float3 lit = color * (ambient + wrapDiffuse * float3(1.0, 0.95, 0.9));
+	float3 lit = color * (ambient + wrapDiffuse * g_DiffuseColor);
 
 	// 림 라이팅 (프레넬 외곽 빛)
 	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
@@ -238,12 +257,11 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 	// 거리 안개
 	float dist = length(g_CameraPos - input.WorldPos);
-	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
-	float heightFog = saturate(1.0 - input.WorldPos.y / 600.0);
+	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / g_FogHeight);
 	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
 
-	float3 fogColor = float3(0.40, 0.50, 0.62);
-	lit = lerp(lit, fogColor, fogFactor);
+	lit = lerp(lit, g_FogColor, fogFactor);
 
 	lit *= 1.8;
 	lit = ACESFilm(lit);
