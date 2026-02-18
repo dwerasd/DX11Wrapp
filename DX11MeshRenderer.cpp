@@ -106,6 +106,9 @@ float4 main(PS_INPUT input) : SV_TARGET
 	// 거리 안개
 	float dist = length(g_CameraPos - input.WorldPos);
 	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / 600.0);
+	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
+
 	float3 fogColor = float3(0.40, 0.50, 0.62);
 	lit = lerp(lit, fogColor, fogFactor);
 
@@ -236,6 +239,9 @@ float4 main(PS_INPUT input) : SV_TARGET
 	// 거리 안개
 	float dist = length(g_CameraPos - input.WorldPos);
 	float fogFactor = pow(saturate((dist - 8000.0) / (16000.0 - 8000.0)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / 600.0);
+	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
+
 	float3 fogColor = float3(0.40, 0.50, 0.62);
 	lit = lerp(lit, fogColor, fogFactor);
 
