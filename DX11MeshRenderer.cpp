@@ -69,8 +69,8 @@ cbuffer CBEnvironment : register(b5)
 	float3 g_FogColor;       float g_FogNear;
 	float3 g_DiffuseColor;   float g_FogFar;
 	float3 g_SkyZenith;      float g_FogHeight;
-	float3 g_SkyHorizon;     float _envPad0;
-	float3 g_SkyGround;      float _envPad1;
+	float3 g_SkyHorizon;     float g_Power;
+	float3 g_SkyGround;      float g_SubLightIntensity;
 };
 
 struct PS_INPUT
@@ -107,7 +107,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 	// Wrap 디퓨즈
 	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
-	float3 lit = color * (ambient + wrapDiffuse * g_DiffuseColor);
+	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
 
 	// 림 라이팅 (프레넬 외곽 빛)
 	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
@@ -211,8 +211,8 @@ cbuffer CBEnvironment : register(b5)
 	float3 g_FogColor;       float g_FogNear;
 	float3 g_DiffuseColor;   float g_FogFar;
 	float3 g_SkyZenith;      float g_FogHeight;
-	float3 g_SkyHorizon;     float _envPad0;
-	float3 g_SkyGround;      float _envPad1;
+	float3 g_SkyHorizon;     float g_Power;
+	float3 g_SkyGround;      float g_SubLightIntensity;
 };
 
 struct PS_INPUT
@@ -249,7 +249,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 	// Wrap 디퓨즈
 	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
-	float3 lit = color * (ambient + wrapDiffuse * g_DiffuseColor);
+	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
 
 	// 림 라이팅 (프레넬 외곽 빛)
 	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
