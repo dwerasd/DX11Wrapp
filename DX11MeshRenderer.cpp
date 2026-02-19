@@ -96,7 +96,6 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 	float3 N = normalize(input.Normal);
 	float3 L = normalize(-g_LightDir);
-	float3 V = normalize(g_CameraPos - input.WorldPos);
 	float NdotL = dot(N, L);
 
 	// 반구형 앰비언트 (환경 데이터 기반)
@@ -109,10 +108,6 @@ float4 main(PS_INPUT input) : SV_TARGET
 	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
 	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
 
-	// 림 라이팅 (프레넬 외곽 빛)
-	float rim = pow(1.0 - saturate(dot(N, V)), 3.0);
-	lit += rim * float3(0.08, 0.10, 0.15) * wrapDiffuse;
-
 	// 거리 안개
 	float dist = length(g_CameraPos - input.WorldPos);
 	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
@@ -124,6 +119,102 @@ float4 main(PS_INPUT input) : SV_TARGET
 	lit *= 1.8;
 	lit = ACESFilm(lit);
 	return float4(lit, texColor.a);
+}
+)HLSL";
+
+
+//============================================================================
+// 알파 테스트 픽셀 셰이더 (SpeedTree 잎/관목 전용)
+//============================================================================
+static const char* const g_pAlphaTestPS = R"HLSL(
+Texture2D    g_Texture : register(t0);
+SamplerState g_Sampler : register(s0);
+
+cbuffer CBPerFrame : register(b0)
+{
+	float4x4 g_ViewProj;
+	float3   g_LightDir;
+	float    g_Pad0;
+	float3   g_CameraPos;
+	float    g_Pad1;
+};
+
+cbuffer CBEnvironment : register(b5)
+{
+	float3 g_Ambient;        float g_ShadowLuminosity;
+	float3 g_FogColor;       float g_FogNear;
+	float3 g_DiffuseColor;   float g_FogFar;
+	float3 g_SkyZenith;      float g_FogHeight;
+	float3 g_SkyHorizon;     float g_Power;
+	float3 g_SkyGround;      float g_SubLightIntensity;
+};
+
+struct PS_INPUT
+{
+	float4 Pos      : SV_POSITION;
+	float3 WorldPos : TEXCOORD0;
+	float3 Normal   : TEXCOORD1;
+	float2 UV       : TEXCOORD2;
+};
+
+float3 ACESFilm(float3 x)
+{
+	float a = 2.51; float b = 0.03;
+	float c = 2.43; float d = 0.59; float e = 0.14;
+	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+}
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	clip(texColor.a - 0.5);
+	float3 color = pow(texColor.rgb, 2.2);
+
+	float3 N = normalize(input.Normal);
+	float3 L = normalize(-g_LightDir);
+	float NdotL = dot(N, L);
+
+	float3 skyColor = g_Ambient * 1.5 + float3(0.03, 0.06, 0.10);
+	float3 groundColor = g_Ambient * 0.8 + float3(0.05, 0.05, 0.06);
+	float hemiBlend = N.y * 0.5 + 0.5;
+	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
+
+	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
+	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
+
+	float dist = length(g_CameraPos - input.WorldPos);
+	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / g_FogHeight);
+	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
+
+	lit = lerp(lit, g_FogColor, fogFactor);
+
+	lit *= 1.8;
+	lit = ACESFilm(lit);
+	return float4(lit, texColor.a);
+}
+)HLSL";
+
+
+//============================================================================
+// 이미시브 픽셀 셰이더 (ADDITIVE 머티리얼 전용 — 라이팅 미적용)
+//============================================================================
+static const char* const g_pEmissivePS = R"HLSL(
+Texture2D    g_Texture : register(t0);
+SamplerState g_Sampler : register(s0);
+
+struct PS_INPUT
+{
+	float4 Pos      : SV_POSITION;
+	float3 WorldPos : TEXCOORD0;
+	float3 Normal   : TEXCOORD1;
+	float2 UV       : TEXCOORD2;
+};
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	return texColor;
 }
 )HLSL";
 
@@ -323,6 +414,43 @@ namespace dx11
 			}
 		}
 
+		// 가산 블렌드 스테이트 (SrcAlpha + One)
+		{
+			D3D11_BLEND_DESC blendDesc_{};
+			blendDesc_.RenderTarget[0].BlendEnable = TRUE;
+			blendDesc_.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			blendDesc_.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+			blendDesc_.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			blendDesc_.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+			blendDesc_.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+			blendDesc_.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+			const HRESULT hrBlend = m_pDevice->GetDevice()->CreateBlendState(
+				&blendDesc_, &m_pAdditiveBlendState);
+			if (FAILED(hrBlend))
+			{
+				DBGPRINT(L"[DX11Mesh] 가산 블렌드 스테이트 생성 실패: 0x%08X", hrBlend);
+				return false;
+			}
+		}
+
+		// 뎁스 읽기 전용 스테이트 (테스트 ON, 쓰기 OFF)
+		{
+			D3D11_DEPTH_STENCIL_DESC dsDesc_{};
+			dsDesc_.DepthEnable = TRUE;
+			dsDesc_.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+			dsDesc_.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+			const HRESULT hrDS = m_pDevice->GetDevice()->CreateDepthStencilState(
+				&dsDesc_, &m_pDepthReadOnlyState);
+			if (FAILED(hrDS))
+			{
+				DBGPRINT(L"[DX11Mesh] 뎁스 읽기전용 스테이트 생성 실패: 0x%08X", hrDS);
+				return false;
+			}
+		}
+
 		m_bInitialized = true;
 		DBGPRINT(L"[DX11Mesh] 메시 렌더러 초기화 완료");
 		return true;
@@ -333,6 +461,8 @@ namespace dx11
 		if (!m_bInitialized) return;
 
 		m_vMeshes.clear();
+		m_pDepthReadOnlyState.Reset();
+		m_pAdditiveBlendState.Reset();
 		m_pWrapSampler.Reset();
 		m_pWhiteSRV.Reset();
 		m_pCBBones.Reset();
@@ -342,6 +472,8 @@ namespace dx11
 		m_pSkinnedPS.Reset();
 		m_pSkinnedVS.Reset();
 		m_pInputLayout.Reset();
+		m_pEmissivePS.Reset();
+		m_pAlphaTestPS.Reset();
 		m_pPS.Reset();
 		m_pVS.Reset();
 
@@ -418,6 +550,48 @@ namespace dx11
 			DBGPRINT(L"[DX11Mesh] InputLayout 생성 실패: 0x%08X", hr);
 			return false;
 		}
+
+		// 알파 테스트 PS
+		Microsoft::WRL::ComPtr<ID3DBlob> pAlphaTestPSBlob;
+		hr = ::D3DCompile(
+			g_pAlphaTestPS, std::strlen(g_pAlphaTestPS),
+			"AlphaTestPS", nullptr, nullptr,
+			"main", "ps_5_0",
+			D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+			&pAlphaTestPSBlob, &pErrorBlob
+		);
+		if (FAILED(hr))
+		{
+			if (pErrorBlob)
+				DBGPRINT(L"[DX11Mesh] 알파테스트 PS 컴파일 에러: %S", static_cast<const char*>(pErrorBlob->GetBufferPointer()));
+			return false;
+		}
+
+		hr = pDev->CreatePixelShader(
+			pAlphaTestPSBlob->GetBufferPointer(), pAlphaTestPSBlob->GetBufferSize(),
+			nullptr, &m_pAlphaTestPS);
+		if (FAILED(hr)) return false;
+
+		// 이미시브 PS (ADDITIVE 머티리얼 — 라이팅 미적용)
+		Microsoft::WRL::ComPtr<ID3DBlob> pEmissivePSBlob;
+		hr = ::D3DCompile(
+			g_pEmissivePS, std::strlen(g_pEmissivePS),
+			"EmissivePS", nullptr, nullptr,
+			"main", "ps_5_0",
+			D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+			&pEmissivePSBlob, &pErrorBlob
+		);
+		if (FAILED(hr))
+		{
+			if (pErrorBlob)
+				DBGPRINT(L"[DX11Mesh] 이미시브 PS 컴파일 에러: %S", static_cast<const char*>(pErrorBlob->GetBufferPointer()));
+			return false;
+		}
+
+		hr = pDev->CreatePixelShader(
+			pEmissivePSBlob->GetBufferPointer(), pEmissivePSBlob->GetBufferSize(),
+			nullptr, &m_pEmissivePS);
+		if (FAILED(hr)) return false;
 
 		DBGPRINT(L"[DX11Mesh] 3D 셰이더 컴파일 완료");
 		return true;
@@ -795,6 +969,43 @@ namespace dx11
 		pCtx->IASetInputLayout(m_pInputLayout.Get());
 		pCtx->VSSetShader(m_pVS.Get(), nullptr, 0);
 		pCtx->PSSetShader(m_pPS.Get(), nullptr, 0);
+	}
+
+	//============================================================================
+	// 알파 테스트 PS 전환
+	//============================================================================
+	void C_DX11_MESH_RENDERER::EnableAlphaTest(bool _bEnable)
+	{
+		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
+		pCtx->PSSetShader(_bEnable ? m_pAlphaTestPS.Get() : m_pPS.Get(), nullptr, 0);
+	}
+
+	//============================================================================
+	// 양면 렌더링 전환
+	//============================================================================
+	void C_DX11_MESH_RENDERER::EnableTwoSided(bool _bEnable)
+	{
+		m_pDevice->SetCullBack(!_bEnable);
+	}
+
+	//============================================================================
+	// 가산 블렌딩 전환
+	//============================================================================
+	void C_DX11_MESH_RENDERER::EnableAdditiveBlend(bool _bEnable)
+	{
+		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
+		if (_bEnable)
+		{
+			pCtx->OMSetBlendState(m_pAdditiveBlendState.Get(), nullptr, 0xFFFFFFFF);
+			pCtx->OMSetDepthStencilState(m_pDepthReadOnlyState.Get(), 0);
+			pCtx->PSSetShader(m_pEmissivePS.Get(), nullptr, 0);
+		}
+		else
+		{
+			pCtx->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+			m_pDevice->SetDepthEnabled(true);
+			pCtx->PSSetShader(m_pPS.Get(), nullptr, 0);
+		}
 	}
 
 	//============================================================================

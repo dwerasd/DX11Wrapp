@@ -18,6 +18,8 @@ namespace dx11
 		// 3D 셰이더 (정적 메시)
 		Microsoft::WRL::ComPtr<ID3D11VertexShader>  m_pVS;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader>   m_pPS;
+		Microsoft::WRL::ComPtr<ID3D11PixelShader>   m_pAlphaTestPS;  // clip(alpha-0.5)
+		Microsoft::WRL::ComPtr<ID3D11PixelShader>   m_pEmissivePS;   // 라이팅 미적용 (가산 블렌딩용)
 		Microsoft::WRL::ComPtr<ID3D11InputLayout>   m_pInputLayout;
 
 		// 3D 셰이더 (스킨드 메시)
@@ -46,6 +48,10 @@ namespace dx11
 
 		// LINEAR + WRAP 샘플러 (UV 타일링 지원 — 존 오브젝트 등)
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_pWrapSampler;
+
+		// 가산 블렌딩 (불빛 이펙트 등 ADDITIVE 머티리얼)
+		Microsoft::WRL::ComPtr<ID3D11BlendState>        m_pAdditiveBlendState;
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_pDepthReadOnlyState;
 
 		bool m_bInitialized;
 
@@ -79,6 +85,15 @@ namespace dx11
 			const DirectX::XMFLOAT4X4* _pBones, uint32_t _uBoneCount,
 			ID3D11ShaderResourceView* _pSRV = nullptr);
 		void EndFrame();
+
+		// 알파 테스트 PS 전환 (SpeedTree 잎/관목 전용)
+		void EnableAlphaTest(bool _bEnable);
+
+		// 가산 블렌딩 전환 (불빛 이펙트 등 ADDITIVE 머티리얼)
+		void EnableAdditiveBlend(bool _bEnable);
+
+		// 양면 렌더링 전환 (TWOSIDED 머티리얼)
+		void EnableTwoSided(bool _bEnable);
 
 		bool IsInitialized() const { return m_bInitialized; }
 	};
