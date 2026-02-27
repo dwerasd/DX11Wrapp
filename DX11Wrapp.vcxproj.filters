@@ -34,6 +34,7 @@
     <ClInclude Include="framework.h">
       <Filter>프레임워크</Filter>
     </ClInclude>
+    <ClInclude Include="DX11MeshRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <!-- 디바이스 소스 -->
@@ -49,5 +50,6 @@
       <Filter>텍스처</Filter>
     </ClCompile>
     <!-- 프레임워크 소스 -->
+    <ClCompile Include="DX11MeshRenderer.cpp" />
   </ItemGroup>
 </Project>

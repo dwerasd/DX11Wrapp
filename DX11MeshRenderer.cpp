@@ -220,6 +220,224 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 
 //============================================================================
+// TBN 정점 셰이더 (노멀맵 지원, 48바이트 정점)
+//============================================================================
+static const char* const g_pTBNMeshVS = R"HLSL(
+cbuffer CBPerFrame : register(b0)
+{
+	float4x4 g_ViewProj;
+	float3   g_LightDir;
+	float    g_Pad0;
+	float3   g_CameraPos;
+	float    g_Pad1;
+};
+
+cbuffer CBPerObject : register(b1)
+{
+	float4x4 g_World;
+};
+
+struct VS_INPUT
+{
+	float3 Pos     : POSITION;
+	float3 Normal  : NORMAL;
+	float2 UV      : TEXCOORD;
+	float4 Tangent : TANGENT;
+};
+
+struct VS_OUTPUT
+{
+	float4 Pos      : SV_POSITION;
+	float3 WorldPos : TEXCOORD0;
+	float3 Normal   : TEXCOORD1;
+	float2 UV       : TEXCOORD2;
+	float3 Tangent  : TEXCOORD3;
+	float  TanSign  : TEXCOORD4;
+};
+
+VS_OUTPUT main(VS_INPUT input)
+{
+	VS_OUTPUT output;
+	float4 worldPos = mul(g_World, float4(input.Pos, 1.0));
+	output.Pos = mul(g_ViewProj, worldPos);
+	output.WorldPos = worldPos.xyz;
+	output.Normal  = normalize(mul((float3x3)g_World, input.Normal));
+	output.Tangent = normalize(mul((float3x3)g_World, input.Tangent.xyz));
+	output.TanSign = input.Tangent.w;
+	output.UV = input.UV;
+	return output;
+}
+)HLSL";
+
+
+//============================================================================
+// TBN 픽셀 셰이더 (노멀맵 적용)
+//============================================================================
+static const char* const g_pTBNMeshPS = R"HLSL(
+Texture2D    g_Texture   : register(t0);
+Texture2D    g_NormalMap  : register(t1);
+SamplerState g_Sampler   : register(s0);
+
+cbuffer CBPerFrame : register(b0)
+{
+	float4x4 g_ViewProj;
+	float3   g_LightDir;
+	float    g_Pad0;
+	float3   g_CameraPos;
+	float    g_Pad1;
+};
+
+cbuffer CBEnvironment : register(b5)
+{
+	float3 g_Ambient;        float g_ShadowLuminosity;
+	float3 g_FogColor;       float g_FogNear;
+	float3 g_DiffuseColor;   float g_FogFar;
+	float3 g_SkyZenith;      float g_FogHeight;
+	float3 g_SkyHorizon;     float g_Power;
+	float3 g_SkyGround;      float g_SubLightIntensity;
+};
+
+struct PS_INPUT
+{
+	float4 Pos      : SV_POSITION;
+	float3 WorldPos : TEXCOORD0;
+	float3 Normal   : TEXCOORD1;
+	float2 UV       : TEXCOORD2;
+	float3 Tangent  : TEXCOORD3;
+	float  TanSign  : TEXCOORD4;
+};
+
+float3 ACESFilm(float3 x)
+{
+	float a = 2.51; float b = 0.03;
+	float c = 2.43; float d = 0.59; float e = 0.14;
+	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+}
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	float3 color = pow(texColor.rgb, 2.2);
+
+	// TBN 행렬 구성 + 노멀맵 샘플링
+	float3 N = normalize(input.Normal);
+	float3 T = normalize(input.Tangent - N * dot(N, input.Tangent));
+	float3 B = cross(N, T) * input.TanSign;
+
+	float3 normalTS = g_NormalMap.Sample(g_Sampler, input.UV).rgb * 2.0 - 1.0;
+	N = normalize(T * normalTS.x + B * normalTS.y + N * normalTS.z);
+
+	float3 L = normalize(-g_LightDir);
+	float NdotL = dot(N, L);
+
+	// 반구형 앰비언트
+	float3 skyColor = g_Ambient * 1.5 + float3(0.03, 0.06, 0.10);
+	float3 groundColor = g_Ambient * 0.8 + float3(0.05, 0.05, 0.06);
+	float hemiBlend = N.y * 0.5 + 0.5;
+	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
+
+	// Wrap 디퓨즈
+	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
+	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
+
+	// 거리 안개
+	float dist = length(g_CameraPos - input.WorldPos);
+	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / g_FogHeight);
+	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
+
+	lit = lerp(lit, g_FogColor, fogFactor);
+
+	lit *= 1.8;
+	lit = ACESFilm(lit);
+	return float4(lit, texColor.a);
+}
+)HLSL";
+
+
+//============================================================================
+// TBN 알파 테스트 픽셀 셰이더 (노멀맵 + alpha cutout)
+//============================================================================
+static const char* const g_pTBNAlphaTestPS = R"HLSL(
+Texture2D    g_Texture   : register(t0);
+Texture2D    g_NormalMap  : register(t1);
+SamplerState g_Sampler   : register(s0);
+
+cbuffer CBPerFrame : register(b0)
+{
+	float4x4 g_ViewProj;
+	float3   g_LightDir;
+	float    g_Pad0;
+	float3   g_CameraPos;
+	float    g_Pad1;
+};
+
+cbuffer CBEnvironment : register(b5)
+{
+	float3 g_Ambient;        float g_ShadowLuminosity;
+	float3 g_FogColor;       float g_FogNear;
+	float3 g_DiffuseColor;   float g_FogFar;
+	float3 g_SkyZenith;      float g_FogHeight;
+	float3 g_SkyHorizon;     float g_Power;
+	float3 g_SkyGround;      float g_SubLightIntensity;
+};
+
+struct PS_INPUT
+{
+	float4 Pos      : SV_POSITION;
+	float3 WorldPos : TEXCOORD0;
+	float3 Normal   : TEXCOORD1;
+	float2 UV       : TEXCOORD2;
+	float3 Tangent  : TEXCOORD3;
+	float  TanSign  : TEXCOORD4;
+};
+
+float3 ACESFilm(float3 x)
+{
+	float a = 2.51; float b = 0.03;
+	float c = 2.43; float d = 0.59; float e = 0.14;
+	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+}
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+	float4 texColor = g_Texture.Sample(g_Sampler, input.UV);
+	clip(texColor.a - 0.5);
+	float3 color = pow(texColor.rgb, 2.2);
+
+	float3 N = normalize(input.Normal);
+	float3 T = normalize(input.Tangent - N * dot(N, input.Tangent));
+	float3 B = cross(N, T) * input.TanSign;
+
+	float3 normalTS = g_NormalMap.Sample(g_Sampler, input.UV).rgb * 2.0 - 1.0;
+	N = normalize(T * normalTS.x + B * normalTS.y + N * normalTS.z);
+
+	float3 L = normalize(-g_LightDir);
+	float NdotL = dot(N, L);
+
+	float3 skyColor = g_Ambient * 1.5 + float3(0.03, 0.06, 0.10);
+	float3 groundColor = g_Ambient * 0.8 + float3(0.05, 0.05, 0.06);
+	float hemiBlend = N.y * 0.5 + 0.5;
+	float3 ambient = lerp(groundColor, skyColor, hemiBlend);
+
+	float wrapDiffuse = saturate(NdotL * 0.6 + 0.4);
+	float3 lit = color * (ambient * g_SubLightIntensity + wrapDiffuse * g_DiffuseColor * g_Power);
+
+	float dist = length(g_CameraPos - input.WorldPos);
+	float fogFactor = pow(saturate((dist - g_FogNear) / (g_FogFar - g_FogNear)), 1.5) * 0.75;
+	float heightFog = saturate(1.0 - input.WorldPos.y / g_FogHeight);
+	fogFactor = saturate(fogFactor + heightFog * 0.25 * saturate(dist / 4000.0));
+
+	lit = lerp(lit, g_FogColor, fogFactor);
+
+	lit *= 1.8;
+	lit = ACESFilm(lit);
+	return float4(lit, texColor.a);
+}
+)HLSL";
+
+
+//============================================================================
 // 스킨드 메시 셰이더 소스
 //============================================================================
 static const char* const g_pSkinnedMeshVS = R"HLSL(
@@ -367,6 +585,8 @@ namespace dx11
 	C_DX11_MESH_RENDERER::C_DX11_MESH_RENDERER()
 		: m_pDevice(nullptr)
 		, m_bInitialized(false)
+		, m_bAlphaTestActive(false)
+		, m_bAdditiveActive(false)
 	{
 	}
 
@@ -383,6 +603,9 @@ namespace dx11
 		m_pDevice = _pDevice;
 
 		if (!compileShaders())
+			return false;
+
+		if (!compileTBNShaders())
 			return false;
 
 		if (!compileSkinnedShaders())
@@ -464,6 +687,7 @@ namespace dx11
 		m_pDepthReadOnlyState.Reset();
 		m_pAdditiveBlendState.Reset();
 		m_pWrapSampler.Reset();
+		m_pFlatNormalSRV.Reset();
 		m_pWhiteSRV.Reset();
 		m_pCBBones.Reset();
 		m_pCBPerObject.Reset();
@@ -472,6 +696,10 @@ namespace dx11
 		m_pSkinnedPS.Reset();
 		m_pSkinnedVS.Reset();
 		m_pInputLayout.Reset();
+		m_pTBNInputLayout.Reset();
+		m_pTBNAlphaTestPS.Reset();
+		m_pTBNPS.Reset();
+		m_pTBNVS.Reset();
 		m_pEmissivePS.Reset();
 		m_pAlphaTestPS.Reset();
 		m_pPS.Reset();
@@ -594,6 +822,100 @@ namespace dx11
 		if (FAILED(hr)) return false;
 
 		DBGPRINT(L"[DX11Mesh] 3D 셰이더 컴파일 완료");
+		return true;
+	}
+
+	//============================================================================
+	// TBN 셰이더 컴파일 (노멀맵 지원, 48바이트 정점)
+	//============================================================================
+	bool C_DX11_MESH_RENDERER::compileTBNShaders()
+	{
+		ID3D11Device* const pDev = m_pDevice->GetDevice();
+		Microsoft::WRL::ComPtr<ID3DBlob> pErrorBlob;
+
+		// TBN VS
+		Microsoft::WRL::ComPtr<ID3DBlob> pVSBlob;
+		HRESULT hr = ::D3DCompile(
+			g_pTBNMeshVS, std::strlen(g_pTBNMeshVS),
+			"TBNMeshVS", nullptr, nullptr,
+			"main", "vs_5_0",
+			D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+			&pVSBlob, &pErrorBlob
+		);
+		if (FAILED(hr))
+		{
+			if (pErrorBlob)
+				DBGPRINT(L"[DX11Mesh] TBN VS 컴파일 에러: %S", static_cast<const char*>(pErrorBlob->GetBufferPointer()));
+			return false;
+		}
+
+		hr = pDev->CreateVertexShader(
+			pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(),
+			nullptr, &m_pTBNVS);
+		if (FAILED(hr)) return false;
+
+		// TBN PS
+		Microsoft::WRL::ComPtr<ID3DBlob> pPSBlob;
+		hr = ::D3DCompile(
+			g_pTBNMeshPS, std::strlen(g_pTBNMeshPS),
+			"TBNMeshPS", nullptr, nullptr,
+			"main", "ps_5_0",
+			D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+			&pPSBlob, &pErrorBlob
+		);
+		if (FAILED(hr))
+		{
+			if (pErrorBlob)
+				DBGPRINT(L"[DX11Mesh] TBN PS 컴파일 에러: %S", static_cast<const char*>(pErrorBlob->GetBufferPointer()));
+			return false;
+		}
+
+		hr = pDev->CreatePixelShader(
+			pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(),
+			nullptr, &m_pTBNPS);
+		if (FAILED(hr)) return false;
+
+		// TBN 알파 테스트 PS
+		Microsoft::WRL::ComPtr<ID3DBlob> pAlphaPSBlob;
+		hr = ::D3DCompile(
+			g_pTBNAlphaTestPS, std::strlen(g_pTBNAlphaTestPS),
+			"TBNAlphaTestPS", nullptr, nullptr,
+			"main", "ps_5_0",
+			D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+			&pAlphaPSBlob, &pErrorBlob
+		);
+		if (FAILED(hr))
+		{
+			if (pErrorBlob)
+				DBGPRINT(L"[DX11Mesh] TBN 알파테스트 PS 컴파일 에러: %S", static_cast<const char*>(pErrorBlob->GetBufferPointer()));
+			return false;
+		}
+
+		hr = pDev->CreatePixelShader(
+			pAlphaPSBlob->GetBufferPointer(), pAlphaPSBlob->GetBufferSize(),
+			nullptr, &m_pTBNAlphaTestPS);
+		if (FAILED(hr)) return false;
+
+		// TBN 인풋 레이아웃 (MeshVertexTBN: Position + Normal + UV + Tangent)
+		const D3D11_INPUT_ELEMENT_DESC aLayout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TANGENT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
+
+		hr = pDev->CreateInputLayout(
+			aLayout, _countof(aLayout),
+			pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(),
+			&m_pTBNInputLayout);
+		if (FAILED(hr))
+		{
+			DBGPRINT(L"[DX11Mesh] TBN InputLayout 생성 실패: 0x%08X", hr);
+			return false;
+		}
+
+		DBGPRINT(L"[DX11Mesh] TBN 셰이더 컴파일 완료 (노멀맵 지원)");
 		return true;
 	}
 
@@ -726,6 +1048,19 @@ namespace dx11
 		if (FAILED(hr)) return false;
 
 		hr = pDev->CreateShaderResourceView(pTex.Get(), nullptr, &m_pWhiteSRV);
+		if (FAILED(hr)) return false;
+
+		// 플랫 노멀맵 (128,128,255,255 = 탄젠트 스페이스 +Z)
+		constexpr uint32_t uFlatNormal = 0xFFFF8080;  // RGBA: 128,128,255,255
+		D3D11_SUBRESOURCE_DATA normData{};
+		normData.pSysMem = &uFlatNormal;
+		normData.SysMemPitch = 4;
+
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> pNormTex;
+		hr = pDev->CreateTexture2D(&texDesc, &normData, &pNormTex);
+		if (FAILED(hr)) return false;
+
+		hr = pDev->CreateShaderResourceView(pNormTex.Get(), nullptr, &m_pFlatNormalSRV);
 		return SUCCEEDED(hr);
 	}
 
@@ -747,6 +1082,49 @@ namespace dx11
 
 		D3D11_BUFFER_DESC vbDesc{};
 		vbDesc.ByteWidth = sizeof(MeshVertex) * _uVertCount;
+		vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+		D3D11_SUBRESOURCE_DATA vbData{};
+		vbData.pSysMem = _pVerts;
+
+		HRESULT hr = pDev->CreateBuffer(&vbDesc, &vbData, &mesh_.m_pVB);
+		if (FAILED(hr)) return INVALID_MESH;
+
+		D3D11_BUFFER_DESC ibDesc{};
+		ibDesc.ByteWidth = sizeof(uint32_t) * _uIndexCount;
+		ibDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+		D3D11_SUBRESOURCE_DATA ibData{};
+		ibData.pSysMem = _pIndices;
+
+		hr = pDev->CreateBuffer(&ibDesc, &ibData, &mesh_.m_pIB);
+		if (FAILED(hr)) return INVALID_MESH;
+
+		const MeshHandle hMesh_ = static_cast<MeshHandle>(m_vMeshes.size());
+		m_vMeshes.push_back(std::move(mesh_));
+		return hMesh_;
+	}
+
+	//============================================================================
+	// 메시 생성 (정적 + 탄젠트, 48바이트)
+	//============================================================================
+	MeshHandle C_DX11_MESH_RENDERER::CreateMeshTBN(
+		const MeshVertexTBN* _pVerts, uint32_t _uVertCount,
+		const uint32_t* _pIndices, uint32_t _uIndexCount)
+	{
+		if (!m_pDevice || !_pVerts || !_pIndices || (_uVertCount == 0) || (_uIndexCount == 0))
+			return INVALID_MESH;
+
+		ID3D11Device* const pDev = m_pDevice->GetDevice();
+		MeshData mesh_{};
+		mesh_.m_uVertexCount = _uVertCount;
+		mesh_.m_uIndexCount = _uIndexCount;
+		mesh_.m_uVertexStride = sizeof(MeshVertexTBN);
+
+		D3D11_BUFFER_DESC vbDesc{};
+		vbDesc.ByteWidth = sizeof(MeshVertexTBN) * _uVertCount;
 		vbDesc.Usage = D3D11_USAGE_IMMUTABLE;
 		vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
@@ -849,6 +1227,10 @@ namespace dx11
 			pCtx->Unmap(m_pCBPerFrame.Get(), 0);
 		}
 
+		// PS 모드 초기화
+		m_bAlphaTestActive = false;
+		m_bAdditiveActive = false;
+
 		// 파이프라인 (정적 메시 기본)
 		pCtx->IASetInputLayout(m_pInputLayout.Get());
 		pCtx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -865,13 +1247,25 @@ namespace dx11
 	void C_DX11_MESH_RENDERER::DrawMesh(
 		MeshHandle _hMesh,
 		const DirectX::XMFLOAT4X4& _rWorld,
-		ID3D11ShaderResourceView* _pSRV)
+		ID3D11ShaderResourceView* _pDiffuseSRV,
+		ID3D11ShaderResourceView* _pNormalSRV)
 	{
 		if ((_hMesh < 0) || (_hMesh >= static_cast<MeshHandle>(m_vMeshes.size())))
 			return;
 
 		const MeshData& mesh_ = m_vMeshes[_hMesh];
 		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
+		const bool bTBN_ = (mesh_.m_uVertexStride == sizeof(MeshVertexTBN));
+
+		// TBN 메시: 셰이더 + 인풋 레이아웃 전환 (가산 블렌딩 시 이미시브 PS 유지)
+		const bool bSwitchTBN_ = bTBN_ && !m_bAdditiveActive;
+		if (bSwitchTBN_)
+		{
+			pCtx->IASetInputLayout(m_pTBNInputLayout.Get());
+			pCtx->VSSetShader(m_pTBNVS.Get(), nullptr, 0);
+			pCtx->PSSetShader(m_bAlphaTestActive ? m_pTBNAlphaTestPS.Get() : m_pTBNPS.Get(),
+				nullptr, 0);
+		}
 
 		// Per-Object 상수 버퍼
 		D3D11_MAPPED_SUBRESOURCE mapped{};
@@ -883,9 +1277,16 @@ namespace dx11
 			pCtx->Unmap(m_pCBPerObject.Get(), 0);
 		}
 
-		// 텍스처 (없으면 흰색 폴백)
-		ID3D11ShaderResourceView* const pSRV_ = _pSRV ? _pSRV : m_pWhiteSRV.Get();
-		pCtx->PSSetShaderResources(0, 1, &pSRV_);
+		// 디퓨즈 텍스처 (없으면 흰색 폴백)
+		ID3D11ShaderResourceView* const pDiffSRV_ = _pDiffuseSRV ? _pDiffuseSRV : m_pWhiteSRV.Get();
+		pCtx->PSSetShaderResources(0, 1, &pDiffSRV_);
+
+		// 노멀맵 (TBN 메시만, 없으면 플랫 노멀맵)
+		if (bSwitchTBN_)
+		{
+			ID3D11ShaderResourceView* const pNormSRV_ = _pNormalSRV ? _pNormalSRV : m_pFlatNormalSRV.Get();
+			pCtx->PSSetShaderResources(1, 1, &pNormSRV_);
+		}
 
 		// VB/IB
 		const UINT uStride_ = mesh_.m_uVertexStride;
@@ -895,6 +1296,15 @@ namespace dx11
 		pCtx->IASetIndexBuffer(mesh_.m_pIB.Get(), DXGI_FORMAT_R32_UINT, 0);
 
 		pCtx->DrawIndexed(mesh_.m_uIndexCount, 0, 0);
+
+		// TBN 메시: 기본 셰이더 복원 (현재 PS 모드에 맞는 셰이더로)
+		if (bSwitchTBN_)
+		{
+			pCtx->IASetInputLayout(m_pInputLayout.Get());
+			pCtx->VSSetShader(m_pVS.Get(), nullptr, 0);
+			pCtx->PSSetShader(m_bAlphaTestActive ? m_pAlphaTestPS.Get() : m_pPS.Get(),
+				nullptr, 0);
+		}
 	}
 
 	//============================================================================
@@ -976,6 +1386,7 @@ namespace dx11
 	//============================================================================
 	void C_DX11_MESH_RENDERER::EnableAlphaTest(bool _bEnable)
 	{
+		m_bAlphaTestActive = _bEnable;
 		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
 		pCtx->PSSetShader(_bEnable ? m_pAlphaTestPS.Get() : m_pPS.Get(), nullptr, 0);
 	}
@@ -993,6 +1404,7 @@ namespace dx11
 	//============================================================================
 	void C_DX11_MESH_RENDERER::EnableAdditiveBlend(bool _bEnable)
 	{
+		m_bAdditiveActive = _bEnable;
 		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
 		if (_bEnable)
 		{
@@ -1014,8 +1426,8 @@ namespace dx11
 	void C_DX11_MESH_RENDERER::EndFrame()
 	{
 		ID3D11DeviceContext* const pCtx = m_pDevice->GetContext();
-		ID3D11ShaderResourceView* const pNull_ = nullptr;
-		pCtx->PSSetShaderResources(0, 1, &pNull_);
+		ID3D11ShaderResourceView* const apNull_[2] = { nullptr, nullptr };
+		pCtx->PSSetShaderResources(0, 2, apNull_);
 	}
 
 } // namespace dx11

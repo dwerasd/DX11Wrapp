@@ -67,7 +67,7 @@ namespace dx11
 	// 3D 메시 타입
 	//========================================================================
 
-	// 3D 정점 (위치 + 법선 + UV, 32바이트)
+	// 3D 정점 (위치 + 법선 + UV, 32바이트) — 파일 I/O 및 기본 렌더링용
 	struct MeshVertex
 	{
 		DirectX::XMFLOAT3 m_Position;	// 12B
@@ -75,6 +75,16 @@ namespace dx11
 		DirectX::XMFLOAT2 m_UV;		// 8B
 	};
 	static_assert(sizeof(MeshVertex) == 32, "MeshVertex 32바이트 필수");
+
+	// 3D 정점 + 탄젠트 (노멀맵 렌더링용, 48바이트)
+	struct MeshVertexTBN
+	{
+		DirectX::XMFLOAT3 m_Position;	// 12B
+		DirectX::XMFLOAT3 m_Normal;		// 12B
+		DirectX::XMFLOAT2 m_UV;		// 8B
+		DirectX::XMFLOAT4 m_Tangent;	// 16B (xyz=탄젠트, w=바이탄젠트 부호)
+	};
+	static_assert(sizeof(MeshVertexTBN) == 48, "MeshVertexTBN 48바이트 필수");
 
 	// 스킨드 메시 정점 (위치 + 법선 + UV + 본 인덱스 + 본 웨이트, 52바이트)
 	struct SkinnedMeshVertex
