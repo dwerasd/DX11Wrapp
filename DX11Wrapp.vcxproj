@@ -267,6 +267,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CImGui.h" />
     <ClInclude Include="DX11Def.h" />
     <ClInclude Include="DX11Device.h" />
     <ClInclude Include="DX11MeshRenderer.h" />
@@ -275,6 +276,7 @@
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CImGui.cpp" />
     <ClCompile Include="DX11Device.cpp" />
     <ClCompile Include="DX11MeshRenderer.cpp" />
     <ClCompile Include="DX11SpriteEngine.cpp" />
