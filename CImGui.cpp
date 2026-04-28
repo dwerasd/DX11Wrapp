@@ -279,46 +279,49 @@ bool C_IMGUI::WndProc_ImGui(HWND _hWnd, UINT _nMessage, WPARAM _wParam, LPARAM _
 // 이하 — DX 백엔드와 무관한 헬퍼 (DX9 버전에서 그대로 가져옴).
 // =============================================================================
 
-typedef std::unordered_map<std::string, std::string> UMAP_UTF8_STRINGS;
-UMAP_UTF8_STRINGS umapUtf8Strings;
+// ─────────────────────────────────────────────────────────────────────────────
+// toUtf8 — narrow / wide 입력을 UTF-8 char* 로 변환하여 ImGui 등에 전달.
+// 캐시 키는 *내용 기반 std::string / std::wstring* 만 사용한다.
+//
+// 과거 wide 버전에 포인터 기반 (const wchar_t*) 캐시가 있었으나 다음 trap 들로
+// 제거됨:
+//   1) stale 데이터: 같은 stack buffer (예: wchar_t wszBuf_[N] + swprintf) 에
+//      매 프레임 다른 내용이 쓰이면 포인터 hit 으로 첫 프레임 결과가 영구 반환.
+//   2) dangling pointer: 임시 std::wstring 의 c_str() 등 곧 해제될 주소가 키로
+//      등록되면 캐시는 invalid pointer 를 영구 보유. 동일 주소 재할당 시
+//      잘못된 hit + 메모리 오염.
+//
+// 비용 분석:
+//   GUI 한글 라벨은 보통 16 wchar (=32B) 이내라 std::wstring SBO 안에 들어가
+//   heap alloc 없이 키 생성 가능. hash 와 비교도 짧은 길이라 microsecond 미만.
+//   포인터 O(1) hit 대비 손실은 측정 불가 수준.
+//
+// thread_local: ImGui 는 메인 스레드 전용이지만 일관성을 위해 양쪽 모두
+// thread_local 로 선언. 다른 스레드에서 호출되어도 race 없음.
+// ─────────────────────────────────────────────────────────────────────────────
+
 LPCSTR toUtf8(LPCSTR _pszData)
 {
-	const UMAP_UTF8_STRINGS::iterator itr = umapUtf8Strings.find(_pszData);
-	if (umapUtf8Strings.end() != itr)
-	{
-		return(itr->second.c_str());
-	}
-	else
-	{
-		umapUtf8Strings[_pszData] = dk::AnsiToUtf8(_pszData);
-	}
-	return(umapUtf8Strings[_pszData].c_str());
-}
+	static thread_local std::unordered_map<std::string, std::string> g_umapNarrow;
+	if (_pszData == nullptr || *_pszData == '\0') { return ""; }
 
-// 포인터 기반 캐시 (리터럴용 - O(1) 조회)
-static thread_local std::unordered_map<const wchar_t*, std::string> g_umapPtrCache;
-// 문자열 기반 캐시 (동적 문자열용)
-static thread_local std::unordered_map<std::wstring, std::string> g_umapStrCache;
+	const std::string strKey_(_pszData);
+	const std::unordered_map<std::string, std::string>::iterator it_ = g_umapNarrow.find(strKey_);
+	if (it_ != g_umapNarrow.end()) { return it_->second.c_str(); }
+
+	return g_umapNarrow.emplace(strKey_, dk::AnsiToUtf8(_pszData)).first->second.c_str();
+}
 
 LPCSTR toUtf8(LPCWSTR _pwszData)
 {
-	if (!_pwszData || !*_pwszData) { return ""; }
+	static thread_local std::unordered_map<std::wstring, std::string> g_umapWide;
+	if (_pwszData == nullptr || *_pwszData == L'\0') { return ""; }
 
-	const auto itPtr = g_umapPtrCache.find(_pwszData);
-	if (itPtr != g_umapPtrCache.end()) { return itPtr->second.c_str(); }
+	const std::wstring strKey_(_pwszData);
+	const std::unordered_map<std::wstring, std::string>::iterator it_ = g_umapWide.find(strKey_);
+	if (it_ != g_umapWide.end()) { return it_->second.c_str(); }
 
-	const std::wstring strKey(_pwszData);
-	const auto itStr = g_umapStrCache.find(strKey);
-	if (itStr != g_umapStrCache.end())
-	{
-		g_umapPtrCache[_pwszData] = itStr->second;
-		return itStr->second.c_str();
-	}
-
-	const std::string strUtf8 = dk::Utf16ToUtf8(_pwszData);
-	g_umapStrCache[strKey] = strUtf8;
-	g_umapPtrCache[_pwszData] = strUtf8;
-	return g_umapStrCache[strKey].c_str();
+	return g_umapWide.emplace(strKey_, dk::Utf16ToUtf8(_pwszData)).first->second.c_str();
 }
 
 bool bInit = false;
