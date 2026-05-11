@@ -26,6 +26,9 @@
     <ClInclude Include="DX11SpriteEngine.h">
       <Filter>렌더링</Filter>
     </ClInclude>
+    <ClInclude Include="DX11Font.h">
+      <Filter>렌더링</Filter>
+    </ClInclude>
     <!-- 텍스처 헤더 -->
     <ClInclude Include="DX11Texture.h">
       <Filter>텍스처</Filter>
@@ -43,6 +46,9 @@
     </ClCompile>
     <!-- 렌더링 소스 -->
     <ClCompile Include="DX11SpriteEngine.cpp">
+      <Filter>렌더링</Filter>
+    </ClCompile>
+    <ClCompile Include="DX11Font.cpp">
       <Filter>렌더링</Filter>
     </ClCompile>
     <!-- 텍스처 소스 -->
