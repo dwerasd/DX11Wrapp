@@ -1,16 +1,12 @@
-﻿// DX11Font.h: DirectWrite 기반 고품질 폰트 시스템 (DX12Font 와 1:1 매핑).
-// 글리프 추출 — IDWriteFontFace + CreateGlyphRunAnalysis (sub-pixel positioning, OpenType,
-// Variable Font 지원). 알파 비트맵 → R8G8B8A8 변환 → 동적 atlas shelf-packing → quad tint 출력.
-// TTF 파일 process-private 등록 지원 (다른 앱에 노출 X).
+﻿// DX12Font.h: 동적 글리프 아틀라스 폰트 시스템 (RFont 패턴).
+// JotaX C_GAME_UI 폰트 시스템을 라이브러리화 — GDI on-demand 글리프 렌더링 →
+// DX12 동적 텍스처 셀 업로드 → 스프라이트 엔진 quad tint 출력.
+// 외부 의존성 0 (FreeType/stb_truetype 사용 안 함, OS GDI 만 사용).
 #pragma once
 
 #include "DX11Def.h"
 
-#include <dwrite_3.h>
-
 #include <unordered_map>
-
-#pragma comment(lib, "dwrite.lib")
 
 
 namespace dx11
@@ -18,51 +14,46 @@ namespace dx11
 	class C_DX11_SPRITE_ENGINE;
 
 
-	// 글리프 메타 — bearing/advance 보관 (DirectWrite 정밀 메트릭).
+	// 동적 글리프 정보 (아틀라스 셀 인덱스 + 너비/높이).
 	struct _DX11_FONT_GLYPH
 	{
-		int16_t m_sOffsetX;		// pen X 기준 비트맵 left (글리프 left bearing, 음수 가능)
-		int16_t m_sOffsetY;		// baseline 기준 비트맵 top (DirectWrite bounds.top, 음수 = baseline 위)
-		uint16_t m_uBmpWidth;	// 비트맵 픽셀 너비
-		uint16_t m_uBmpHeight;
-		uint16_t m_uAtlasX;		// atlas 내 좌상단
-		uint16_t m_uAtlasY;
-		float m_fAdvance;		// sub-pixel 정밀 advance
+		uint16_t m_uCellIndex;	// 아틀라스 셀 인덱스 (0 ~ FONT_CELL_COUNT-1)
+		uint8_t m_uWidth;		// 글리프 advance 너비 (픽셀)
+		uint8_t m_uHeight;		// 글리프 높이 (픽셀)
 	};
 
 
 	class C_DX11_FONT
 	{
 	private:
+		// 기본 아틀라스 / 셀 크기 (Initialize 인자로 override 가능).
 		static constexpr uint32_t DEFAULT_ATLAS_SIZE = 1024;
+		static constexpr uint32_t DEFAULT_CELL_SIZE = 32;
 
-		// DirectWrite 공유 자원.
-		static Microsoft::WRL::ComPtr<IDWriteFactory3> s_pFactory;
-		static Microsoft::WRL::ComPtr<IDWriteFontSetBuilder1> s_pSetBuilder;
-		static Microsoft::WRL::ComPtr<IDWriteFontCollection1> s_pCustomCollection;
-		static bool s_bCustomDirty;
-
-		static bool ensureFactory_();
-		static bool ensureCustomCollection_();
-
-		// 폰트 페이스 + 메트릭.
-		Microsoft::WRL::ComPtr<IDWriteFontFace> m_pFace;
-		float m_fEmSize;
-		float m_fAscent;
-		float m_fDescent;
-		float m_fLineGap;
-		uint32_t m_uDesignUnitsPerEm;
-
-		// Atlas + shelf packing.
+		// 스프라이트 엔진의 텍스처 핸들 (CreateDynamicTexture 결과).
 		TextureHandle m_hTexture;
-		uint32_t m_uAtlasSize;
-		uint32_t m_uShelfX;
-		uint32_t m_uShelfY;
-		uint32_t m_uShelfH;
-		bool m_bAtlasFull;
 
+		// 아틀라스 메타.
+		uint32_t m_uAtlasSize;		// 텍스처 한 변 픽셀 (예: 1024)
+		uint32_t m_uCellSize;		// 셀 한 변 픽셀 (예: 32)
+		uint32_t m_uCellsX;			// m_uAtlasSize / m_uCellSize
+		uint32_t m_uCellsY;
+		uint32_t m_uCellCount;		// m_uCellsX * m_uCellsY
+
+		// 폰트 설정 (스케일 1.0 기준 글리프 높이).
+		uint32_t m_uFontHeight;
+
+		// GDI 글리프 렌더링 (on-demand).
+		HDC m_hDC;
+		HFONT m_hFont;
+		HBITMAP m_hBitmap;
+		uint32_t* m_pBits;			// DIBSection 픽셀 (m_uCellSize × m_uCellSize)
+
+		// 동적 글리프 캐시.
 		std::unordered_map<wchar_t, _DX11_FONT_GLYPH> m_mapGlyphs;
+		uint32_t m_uNextCell;
 
+		// 캐시 미스 시 GDI 로 글리프 렌더 + 텍스처 업로드.
 		const _DX11_FONT_GLYPH* getGlyph_(C_DX11_SPRITE_ENGINE* _pEngine, wchar_t _wChar);
 
 	public:
@@ -71,45 +62,46 @@ namespace dx11
 		C_DX11_FONT(const C_DX11_FONT&) = delete;
 		C_DX11_FONT& operator=(const C_DX11_FONT&) = delete;
 
-		// TTF 파일 등록 (process-private). Initialize 호출 전 권장.
-		static bool RegisterFontFile(const wchar_t* _pPath);
-
-		// 정적 자원 해제 (앱 종료 시, 모든 인스턴스 Shutdown 이후).
-		static void CleanupStatic();
-
-		// 폰트 초기화. _pFaceName = family name (등록 폰트 → 시스템 폰트 순 검색).
+		// 폰트 시스템 초기화.
+		// _pFaceName    : 폰트 페이스 (예: L"맑은 고딕", L"Pretendard Variable").
+		// _uFontHeight  : 픽셀 단위 글리프 높이 (CreateFontW 의 음수 lfHeight).
+		// _bBold        : 굵게 여부.
+		// _uCellSize    : 셀 한 변 (default 32). _uFontHeight 보다 충분히 커야 함.
+		// _uAtlasSize   : 아틀라스 한 변 (default 1024). 셀 개수 = (atlas/cell)^2.
+		// 주의 — BeginFrame 외부에서 호출. 내부 CreateDynamicTexture 가 일회용 cmdlist 로
+		//        텍스처를 0 초기화 + COPY_DEST→PIXEL_SHADER_RESOURCE 전환하기 때문.
 		bool Initialize(C_DX11_SPRITE_ENGINE* _pEngine,
 			const wchar_t* _pFaceName,
 			uint32_t _uFontHeight,
 			bool _bBold,
-			bool _bItalic = false,
+			uint32_t _uCellSize = DEFAULT_CELL_SIZE,
 			uint32_t _uAtlasSize = DEFAULT_ATLAS_SIZE);
 
 		void Shutdown(C_DX11_SPRITE_ENGINE* _pEngine);
 
-		// 텍스트 출력 — BeginFrame ~ EndFrame 사이.
-		// _fX, _fY = 텍스트 좌상단 (ascent 자동 적용).
+		// 텍스트 출력 — BeginFrame ~ EndFrame 사이 호출.
+		// _fScale: 1.0 = m_uFontHeight 픽셀 그대로, 0.8 = 축소, 2.0 = 확대 (point sampling 으로 끊김 가능).
+		// _uColor: ARGB 32비트 (스프라이트 엔진 tint, 알파 마스크 글리프에 곱해짐).
+		// Windows 의 DrawText 매크로와 충돌 회피 위해 RenderText 명명.
 		void RenderText(C_DX11_SPRITE_ENGINE* _pEngine,
 			float _fX, float _fY, const wchar_t* _pText,
-			uint32_t _uColor, float _fScale = 1.0f);
+			uint32_t _uColor, float _fScale);
 
+		// printf 스타일 포맷 출력 (내부 버퍼 512 wchar_t).
 		void RenderTextFmt(C_DX11_SPRITE_ENGINE* _pEngine,
 			float _fX, float _fY, uint32_t _uColor, float _fScale,
 			const wchar_t* _pFmt, ...);
 
-		float MeasureText(C_DX11_SPRITE_ENGINE* _pEngine, const wchar_t* _pText, float _fScale = 1.0f);
+		// 텍스트 픽셀 너비 측정 (렌더링 없이 캐시 채움 — hit-test/정렬용).
+		// 캐시 미스 글리프도 atlas 에 등록되므로 직후 RenderText 호출은 동일 글자에 대해 캐시 hit.
+		float MeasureText(C_DX11_SPRITE_ENGINE* _pEngine, const wchar_t* _pText, float _fScale);
 
-		float GetAscent(float _fScale = 1.0f) const { return m_fAscent * _fScale; }
-		float GetDescent(float _fScale = 1.0f) const { return m_fDescent * _fScale; }
-		float GetLineHeight(float _fScale = 1.0f) const
-		{
-			return (m_fAscent + m_fDescent + m_fLineGap) * _fScale;
-		}
-
+		// 접근자.
 		TextureHandle GetTextureHandle() const { return m_hTexture; }
-		uint32_t GetFontHeightPixels() const { return static_cast<uint32_t>(m_fEmSize); }
-		uint32_t GetCachedGlyphCount() const { return static_cast<uint32_t>(m_mapGlyphs.size()); }
-		bool IsInitialized() const { return m_hTexture != INVALID_TEXTURE && m_pFace != nullptr; }
+		uint32_t GetFontHeight() const { return m_uFontHeight; }
+		uint32_t GetCellSize() const { return m_uCellSize; }
+		uint32_t GetCachedGlyphCount() const { return m_uNextCell; }
+		bool IsInitialized() const { return m_hTexture != INVALID_TEXTURE; }
 	};
 
 } // namespace dx11
