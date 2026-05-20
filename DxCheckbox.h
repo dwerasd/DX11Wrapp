@@ -4,6 +4,8 @@
 #include "DxWidget.h"
 #include "DxDrawContext.h"
 
+#include <functional>
+
 
 namespace dx11
 {
@@ -18,6 +20,7 @@ namespace dx11
 		_DX_COLOR   m_BoxCheckColor;
 		_DX_COLOR   m_BoxBorderColor;
 		float       m_fBoxSize;     // 박스 한 변 (픽셀)
+		std::function<void(bool)> m_OnChange;   // 토글 직후 새 값으로 호출
 
 	public:
 		C_DX_CHECKBOX()
@@ -35,6 +38,7 @@ namespace dx11
 		void SetFont(FontHandle _h)      { m_hFont = _h; }
 		void SetTextColor(_DX_COLOR _c)  { m_TextColor = _c; }
 		void SetBoxSize(float _s)        { m_fBoxSize = _s; }
+		void SetOnChange(std::function<void(bool)> _fn) { m_OnChange = std::move(_fn); }
 
 		// 타입
 		E_DX_WIDGET_TYPE GetType() const override     { return DX_WIDGET_CHECKBOX; }

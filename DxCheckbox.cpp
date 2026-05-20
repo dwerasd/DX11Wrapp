@@ -79,12 +79,13 @@ namespace dx11
 				sW_.c_str(), m_TextColor, m_fFontScale);
 		}
 
-		// 클릭 — 박스 또는 라벨 영역 클릭 시 토글.
+		// 클릭 — 박스 또는 라벨 영역 클릭 시 토글. onChange 콜백 호출.
 		if (m_bEnabled && m_pData != nullptr
 			&& _ctx.IsMouseHovered(hit_)
 			&& _ctx.IsMouseReleased(DX_MOUSE_LEFT))
 		{
 			*m_pData = !(*m_pData);
+			if (m_OnChange) { m_OnChange(*m_pData); }
 		}
 	}
 
