@@ -65,6 +65,8 @@ namespace dx11
 		void FillRect(_DX_RECT _rect, _DX_COLOR _color) override;
 		void DrawRectOutline(_DX_RECT _rect, _DX_COLOR _color,
 			float _fThickness) override;
+		void DrawLine(_DX_POINT _a, _DX_POINT _b,
+			_DX_COLOR _color, float _fThickness) override;
 
 		void PushClipRect(_DX_RECT _rect) override;
 		void PopClipRect() override;

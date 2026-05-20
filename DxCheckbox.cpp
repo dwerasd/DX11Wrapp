@@ -53,13 +53,21 @@ namespace dx11
 		_ctx.FillRect(box_, m_BoxBgColor);
 		_ctx.DrawRectOutline(box_, m_BoxBorderColor, 2.0f);
 
-		// 체크 표시.
+		// 체크 표시 — V (✓) 모양. 두 line segment.
 		if (m_pData != nullptr && *m_pData)
 		{
-			const float pad_ = m_fBoxSize * 0.2f;
-			_ctx.FillRect(_DX_RECT(box_.x + pad_, box_.y + pad_,
-				m_fBoxSize - pad_ * 2.0f, m_fBoxSize - pad_ * 2.0f),
-				m_BoxCheckColor);
+			const float bx_ = box_.x;
+			const float by_ = box_.y;
+			const float bs_ = m_fBoxSize;
+			const float th_ = (bs_ * 0.16f < 2.0f) ? 2.0f : bs_ * 0.16f;
+			// 왼쪽 위 -> 가운데 아래 (짧은 변).
+			_ctx.DrawLine(_DX_POINT(bx_ + bs_ * 0.20f, by_ + bs_ * 0.50f),
+			              _DX_POINT(bx_ + bs_ * 0.42f, by_ + bs_ * 0.72f),
+			              m_BoxCheckColor, th_);
+			// 가운데 아래 -> 오른쪽 위 (긴 변).
+			_ctx.DrawLine(_DX_POINT(bx_ + bs_ * 0.42f, by_ + bs_ * 0.72f),
+			              _DX_POINT(bx_ + bs_ * 0.82f, by_ + bs_ * 0.25f),
+			              m_BoxCheckColor, th_);
 		}
 
 		// 라벨 텍스트 — 박스 우측.

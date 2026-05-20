@@ -75,6 +75,8 @@ namespace dx11
 		virtual void FillRect(_DX_RECT _rect, _DX_COLOR _color) = 0;
 		virtual void DrawRectOutline(_DX_RECT _rect, _DX_COLOR _color,
 			float _fThickness) = 0;
+		virtual void DrawLine(_DX_POINT _a, _DX_POINT _b,
+			_DX_COLOR _color, float _fThickness) = 0;
 
 		// ── 클립 영역 (자식 위젯 클리핑) ──
 		virtual void PushClipRect(_DX_RECT _rect) = 0;

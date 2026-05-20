@@ -173,6 +173,14 @@ namespace dx11
 	}
 
 
+	void C_DX_DRAW_CONTEXT_DX11::DrawLine(_DX_POINT _a, _DX_POINT _b,
+		_DX_COLOR _color, float _fThickness)
+	{
+		// TODO: 실제 GPU 라인 (sprite engine 회전 quad 또는 line primitive). 임시 stub.
+		(void)_a; (void)_b; (void)_color; (void)_fThickness;
+	}
+
+
 	void C_DX_DRAW_CONTEXT_DX11::PushClipRect(_DX_RECT _rect)
 	{
 		// TODO: 실제 GPU 시저 적용. 현재는 스택 보관만 (위젯 클리핑은 P3+ 에 도입 예정).
