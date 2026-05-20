@@ -274,6 +274,9 @@
     <ClInclude Include="DX11Font.h" />
     <ClInclude Include="DX11SpriteEngine.h" />
     <ClInclude Include="DX11Texture.h" />
+    <ClInclude Include="DxTypes.h" />
+    <ClInclude Include="DxDrawContext.h" />
+    <ClInclude Include="DxDrawContext_DX11.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
@@ -283,6 +286,7 @@
     <ClCompile Include="DX11Font.cpp" />
     <ClCompile Include="DX11SpriteEngine.cpp" />
     <ClCompile Include="DX11Texture.cpp" />
+    <ClCompile Include="DxDrawContext_DX11.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
