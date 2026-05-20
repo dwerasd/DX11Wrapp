@@ -282,6 +282,7 @@
     <ClInclude Include="DxButton.h" />
     <ClInclude Include="DxEditbox.h" />
     <ClInclude Include="DxCheckbox.h" />
+    <ClInclude Include="DxPage.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
@@ -296,6 +297,7 @@
     <ClCompile Include="DxButton.cpp" />
     <ClCompile Include="DxEditbox.cpp" />
     <ClCompile Include="DxCheckbox.cpp" />
+    <ClCompile Include="DxPage.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
