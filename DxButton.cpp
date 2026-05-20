@@ -42,15 +42,18 @@ namespace dx11
 		}
 
 		// ── 텍스트 ──
-		// NORMAL = 가로/세로 중앙. MENU_TEXT = 가로 좌측 + 세로 중앙(원본 동작).
+		// 가로/세로 정렬은 m_Align / m_VAlign 으로 일반화.
+		// (스타일별 default: NORMAL=CENTER/CENTER, MENU_TEXT=LEFT/CENTER — SetStyle 에서 세팅.)
 		if (!m_sName.empty() && m_hFont != INVALID_FONT)
 		{
 			const std::wstring sW_ = U8ToW_(m_sName);
 			const _DX_SIZE sz_ = _ctx.MeasureText(m_hFont, sW_.c_str(), m_fFontScale);
-			const float fTX_ = (m_Style == DX_BTN_STYLE_MENU_TEXT)
-				? abs_.x
-				: (abs_.x + (abs_.w - sz_.w) * 0.5f);
-			const float fTY_ = abs_.y + (abs_.h - sz_.h) * 0.5f;
+			float fTX_ = abs_.x;
+			if (m_Align == DX_TEXT_ALIGN_CENTER) { fTX_ += (abs_.w - sz_.w) * 0.5f; }
+			else if (m_Align == DX_TEXT_ALIGN_RIGHT) { fTX_ += (abs_.w - sz_.w); }
+			float fTY_ = abs_.y;
+			if (m_VAlign == DX_VALIGN_CENTER) { fTY_ += (abs_.h - sz_.h) * 0.5f; }
+			else if (m_VAlign == DX_VALIGN_BOTTOM) { fTY_ += (abs_.h - sz_.h); }
 			const _DX_COLOR col_ = bHover_ ? m_TextHoverColor : m_TextColor;
 			_ctx.DrawText(m_hFont, _DX_POINT(fTX_, fTY_),
 				sW_.c_str(), col_, m_fFontScale);

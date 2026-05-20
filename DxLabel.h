@@ -14,12 +14,14 @@ namespace dx11
 	private:
 		_DX_COLOR        m_Color;
 		E_DX_TEXT_ALIGN  m_Align;
+		E_DX_VTEXT_ALIGN m_VAlign;
 		FontHandle       m_hFont;   // 페이지가 등록한 폰트 핸들
 
 	public:
 		C_DX_LABEL()
 			: m_Color(0xFF222838u)
 			, m_Align(DX_TEXT_ALIGN_LEFT)
+			, m_VAlign(DX_VALIGN_TOP)
 			, m_hFont(INVALID_FONT)
 		{
 		}
@@ -27,11 +29,13 @@ namespace dx11
 		// 속성 setter
 		void SetColor(_DX_COLOR _c)            { m_Color = _c; }
 		void SetAlign(E_DX_TEXT_ALIGN _a)      { m_Align = _a; }
+		void SetVAlign(E_DX_VTEXT_ALIGN _a)    { m_VAlign = _a; }
 		void SetFont(FontHandle _h)            { m_hFont = _h; }
 
-		_DX_COLOR       GetColor() const       { return m_Color; }
-		E_DX_TEXT_ALIGN GetAlign() const       { return m_Align; }
-		FontHandle      GetFont()  const       { return m_hFont; }
+		_DX_COLOR        GetColor()  const     { return m_Color; }
+		E_DX_TEXT_ALIGN  GetAlign()  const     { return m_Align; }
+		E_DX_VTEXT_ALIGN GetVAlign() const     { return m_VAlign; }
+		FontHandle       GetFont()   const     { return m_hFont; }
 
 		// 타입
 		E_DX_WIDGET_TYPE GetType() const override     { return DX_WIDGET_LABEL; }

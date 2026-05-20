@@ -25,6 +25,15 @@ namespace dx11
 	};
 
 
+	// 세로 정렬 — m_Rect.h 가 양수일 때만 의미. h<=0 이면 TOP 동작과 동일.
+	enum E_DX_VTEXT_ALIGN : uint8_t
+	{
+		DX_VALIGN_TOP    = 0,
+		DX_VALIGN_CENTER = 1,
+		DX_VALIGN_BOTTOM = 2,
+	};
+
+
 	enum E_DX_MOUSE_BUTTON : uint8_t
 	{
 		DX_MOUSE_LEFT   = 0,

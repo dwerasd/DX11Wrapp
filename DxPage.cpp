@@ -85,14 +85,17 @@ namespace dx11
 		case DX_WIDGET_LABEL:
 		{
 			const C_DX_LABEL* p_ = static_cast<const C_DX_LABEL*>(_w);
-			j_["color"] = p_->GetColor().argb;
-			j_["align"] = static_cast<int>(p_->GetAlign());
+			j_["color"]  = p_->GetColor().argb;
+			j_["align"]  = static_cast<int>(p_->GetAlign());
+			j_["valign"] = static_cast<int>(p_->GetVAlign());
 			break;
 		}
 		case DX_WIDGET_BUTTON:
 		{
 			const C_DX_BUTTON* p_ = static_cast<const C_DX_BUTTON*>(_w);
-			j_["style"] = static_cast<int>(p_->GetStyle());
+			j_["style"]  = static_cast<int>(p_->GetStyle());
+			j_["align"]  = static_cast<int>(p_->GetAlign());
+			j_["valign"] = static_cast<int>(p_->GetVAlign());
 			break;
 		}
 		case DX_WIDGET_EDITBOX:
@@ -131,6 +134,10 @@ namespace dx11
 			{
 				p_->SetAlign(static_cast<E_DX_TEXT_ALIGN>(_j["align"].get<int>()));
 			}
+			if (_j.contains("valign"))
+			{
+				p_->SetVAlign(static_cast<E_DX_VTEXT_ALIGN>(_j["valign"].get<int>()));
+			}
 			break;
 		}
 		case DX_WIDGET_BUTTON:
@@ -139,6 +146,15 @@ namespace dx11
 			if (_j.contains("style"))
 			{
 				p_->SetStyle(static_cast<E_DX_BUTTON_STYLE>(_j["style"].get<int>()));
+			}
+			// SetStyle 이 align 기본값을 덮으므로 align/valign 은 그 다음에 적용.
+			if (_j.contains("align"))
+			{
+				p_->SetAlign(static_cast<E_DX_TEXT_ALIGN>(_j["align"].get<int>()));
+			}
+			if (_j.contains("valign"))
+			{
+				p_->SetVAlign(static_cast<E_DX_VTEXT_ALIGN>(_j["valign"].get<int>()));
 			}
 			break;
 		}

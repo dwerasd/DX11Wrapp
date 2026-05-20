@@ -32,7 +32,7 @@ namespace dx11
 		const _DX_SIZE sz_ = _ctx.MeasureText(m_hFont, sW_.c_str(), m_fFontScale);
 
 		float fX_ = _origin.x + m_Rect.x;
-		const float fY_ = _origin.y + m_Rect.y;
+		float fY_ = _origin.y + m_Rect.y;
 		if (m_Rect.w > 0.0f)
 		{
 			if (m_Align == DX_TEXT_ALIGN_CENTER)
@@ -42,6 +42,17 @@ namespace dx11
 			else if (m_Align == DX_TEXT_ALIGN_RIGHT)
 			{
 				fX_ += (m_Rect.w - sz_.w);
+			}
+		}
+		if (m_Rect.h > 0.0f)
+		{
+			if (m_VAlign == DX_VALIGN_CENTER)
+			{
+				fY_ += (m_Rect.h - sz_.h) * 0.5f;
+			}
+			else if (m_VAlign == DX_VALIGN_BOTTOM)
+			{
+				fY_ += (m_Rect.h - sz_.h);
 			}
 		}
 		_ctx.DrawText(m_hFont, _DX_POINT(fX_, fY_),
