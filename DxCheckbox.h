@@ -24,9 +24,9 @@ namespace dx11
 			: m_pData(nullptr)
 			, m_hFont(INVALID_FONT)
 			, m_TextColor(0xFF222838u)
-			, m_BoxBgColor(0xFFE8ECF0u)    // 옅은 회색 (화면 light 배경과 대비)
+			, m_BoxBgColor(0xFFFFFFFFu)
 			, m_BoxCheckColor(0xFF236EE0u)
-			, m_BoxBorderColor(0xFF3A4A5Eu)  // 짙은 회색 (선명 테두리)
+			, m_BoxBorderColor(0xFF1A2638u)   // 거의 검정에 가까운 진한 색
 			, m_fBoxSize(18.0f)
 		{
 		}
