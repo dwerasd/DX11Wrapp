@@ -277,6 +277,11 @@
     <ClInclude Include="DxTypes.h" />
     <ClInclude Include="DxDrawContext.h" />
     <ClInclude Include="DxDrawContext_DX11.h" />
+    <ClInclude Include="DxWidget.h" />
+    <ClInclude Include="DxLabel.h" />
+    <ClInclude Include="DxButton.h" />
+    <ClInclude Include="DxEditbox.h" />
+    <ClInclude Include="DxCheckbox.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
@@ -287,6 +292,10 @@
     <ClCompile Include="DX11SpriteEngine.cpp" />
     <ClCompile Include="DX11Texture.cpp" />
     <ClCompile Include="DxDrawContext_DX11.cpp" />
+    <ClCompile Include="DxLabel.cpp" />
+    <ClCompile Include="DxButton.cpp" />
+    <ClCompile Include="DxEditbox.cpp" />
+    <ClCompile Include="DxCheckbox.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
