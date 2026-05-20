@@ -154,10 +154,11 @@ namespace dx11
 			}
 		}
 
-		// 배경 + 테두리.
+		// 배경 + 테두리. hover/focused 색상 분기. focused 면 2px 두께.
 		_ctx.FillRect(abs_, m_BgColor);
-		_ctx.DrawRectOutline(abs_,
-			m_bFocused ? m_BorderFocusColor : m_BorderColor, 1.0f);
+		const _DX_COLOR bdrCol_ = m_bFocused ? m_BorderFocusColor
+		                       : (bHover_   ? m_BorderFocusColor : m_BorderColor);
+		_ctx.DrawRectOutline(abs_, bdrCol_, m_bFocused ? 2.0f : 1.0f);
 
 		// 표시 문자열 — 포커스 시 편집 버퍼, 아니면 바인딩 변수 값.
 		const std::string sShow_ = m_bFocused ? m_sBuffer : DataToString_();
