@@ -25,14 +25,35 @@ namespace dx11
 		if (!m_bVisible) { return; }
 
 		const _DX_RECT abs_ = AbsRect(_origin);
-		const _DX_RECT box_(abs_.x, abs_.y + (abs_.h - m_fBoxSize) * 0.5f,
+
+		// 라벨 텍스트 측정 (hit-test 영역 자동 확장용).
+		std::wstring sW_;
+		float fTextW_ = 0.0f;
+		float fTextH_ = 0.0f;
+		if (!m_sName.empty() && m_hFont != INVALID_FONT)
+		{
+			sW_ = U8ToW_(m_sName);
+			const _DX_SIZE sz_ = _ctx.MeasureText(m_hFont, sW_.c_str(), m_fFontScale);
+			fTextW_ = sz_.w;
+			fTextH_ = sz_.h;
+		}
+
+		// hit-test 영역 — m_Rect.w/h 가 0 이면 박스 + 텍스트 영역 자동 산출.
+		const float fHitW_ = (abs_.w > 0.0f) ? abs_.w
+			: (m_fBoxSize + 6.0f + fTextW_);
+		const float fHitH_ = (abs_.h > 0.0f) ? abs_.h
+			: (m_fBoxSize > fTextH_ ? m_fBoxSize : fTextH_);
+		const _DX_RECT hit_(abs_.x, abs_.y, fHitW_, fHitH_);
+
+		// 박스 — hit 영역 안에서 세로 중앙.
+		const _DX_RECT box_(abs_.x, abs_.y + (fHitH_ - m_fBoxSize) * 0.5f,
 			m_fBoxSize, m_fBoxSize);
 
 		// 박스 — 배경 + 테두리.
 		_ctx.FillRect(box_, m_BoxBgColor);
 		_ctx.DrawRectOutline(box_, m_BoxBorderColor, 1.0f);
 
-		// 체크 표시 — 박스 내부 작은 사각형으로 단순화 (체크 마크 대신).
+		// 체크 표시.
 		if (m_pData != nullptr && *m_pData)
 		{
 			const float pad_ = m_fBoxSize * 0.2f;
@@ -42,19 +63,17 @@ namespace dx11
 		}
 
 		// 라벨 텍스트 — 박스 우측.
-		if (!m_sName.empty() && m_hFont != INVALID_FONT)
+		if (!sW_.empty() && m_hFont != INVALID_FONT)
 		{
-			const std::wstring sW_ = U8ToW_(m_sName);
-			const float fH_ = _ctx.GetFontHeight(m_hFont, m_fFontScale);
 			_ctx.DrawText(m_hFont,
 				_DX_POINT(box_.x + m_fBoxSize + 6.0f,
-					abs_.y + (abs_.h - fH_) * 0.5f),
+					abs_.y + (fHitH_ - fTextH_) * 0.5f),
 				sW_.c_str(), m_TextColor, m_fFontScale);
 		}
 
 		// 클릭 — 박스 또는 라벨 영역 클릭 시 토글.
 		if (m_bEnabled && m_pData != nullptr
-			&& _ctx.IsMouseHovered(abs_)
+			&& _ctx.IsMouseHovered(hit_)
 			&& _ctx.IsMouseReleased(DX_MOUSE_LEFT))
 		{
 			*m_pData = !(*m_pData);

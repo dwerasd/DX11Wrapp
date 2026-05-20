@@ -18,6 +18,7 @@ namespace dx11
 		DX_EDIT_INT64  = 1,
 		DX_EDIT_FLOAT  = 2,
 		DX_EDIT_TEXT   = 3,
+		DX_EDIT_YMD    = 4,   // int32 YYYYMMDD 바인딩 — 표시는 YYYY-MM-DD 자동 마스킹
 	};
 
 
@@ -59,6 +60,8 @@ namespace dx11
 		void BindFloat(float* _p)          { m_DataType = DX_EDIT_FLOAT; m_pData = _p; }
 		void BindText(std::string* _p, size_t _uMax = 255)
 		{ m_DataType = DX_EDIT_TEXT; m_pData = _p; m_uTextMax = _uMax; }
+		// YYYY-MM-DD 자동 마스킹. 내부는 int32 YYYYMMDD (예: 20200102).
+		void BindYmd(int32_t* _p)          { m_DataType = DX_EDIT_YMD; m_pData = _p; }
 
 		void SetFont(FontHandle _h)        { m_hFont = _h; }
 		void SetTextColor(_DX_COLOR _c)    { m_TextColor = _c; }
@@ -80,6 +83,8 @@ namespace dx11
 		std::string DataToString_() const;
 		// 표시 문자열 → 바인딩 변수 (편집 종료 / 엔터).
 		void StringToData_();
+		// YMD 버퍼 정규화 — 숫자만 추출 후 "YYYY-MM-DD" 형식 재구성.
+		void NormalizeYmdBuffer_();
 	};
 
 } // namespace dx11
