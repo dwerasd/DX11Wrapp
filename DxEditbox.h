@@ -38,6 +38,8 @@ namespace dx11
 		bool        m_bFocused;
 		std::string m_sBuffer;           // 편집 중 표시 버퍼 (TEXT) 또는 숫자 입력 버퍼
 		size_t      m_uCaret;            // 캐럿 위치 (m_sBuffer 인덱스)
+		bool        m_bSelected;         // focus 진입 직후 = true. 첫 입력/백스페이스 시 buffer 비움 + false.
+		int         m_nBlinkCnt;         // caret blink 카운터 (frame 단위, 60 = ~1초 주기)
 
 	public:
 		C_DX_EDITBOX()
@@ -51,6 +53,8 @@ namespace dx11
 			, m_BorderFocusColor(0xFF236EE0u)
 			, m_bFocused(false)
 			, m_uCaret(0)
+			, m_bSelected(false)
+			, m_nBlinkCnt(0)
 		{
 		}
 
@@ -71,6 +75,8 @@ namespace dx11
 
 		E_DX_EDIT_TYPE GetDataType() const { return m_DataType; }
 		bool IsFocused() const             { return m_bFocused; }
+		bool IsSelected() const            { return m_bSelected; }
+		size_t GetBufferSize() const       { return m_sBuffer.size(); }
 
 		// 타입
 		E_DX_WIDGET_TYPE GetType() const override     { return DX_WIDGET_EDITBOX; }

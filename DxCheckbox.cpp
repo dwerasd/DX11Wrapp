@@ -49,9 +49,9 @@ namespace dx11
 		const _DX_RECT box_(abs_.x, abs_.y + (fHitH_ - m_fBoxSize) * 0.5f,
 			m_fBoxSize, m_fBoxSize);
 
-		// 박스 — 배경 + 테두리 (3px 굵게 시인성 보장).
+		// 박스 — 배경 + 테두리 (2px 시인성 확보).
 		_ctx.FillRect(box_, m_BoxBgColor);
-		_ctx.DrawRectOutline(box_, m_BoxBorderColor, 3.0f);
+		_ctx.DrawRectOutline(box_, m_BoxBorderColor, 2.0f);
 
 		// 체크 표시.
 		if (m_pData != nullptr && *m_pData)

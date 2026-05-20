@@ -144,31 +144,49 @@ namespace dx11
 				{
 					m_bFocused = true;
 					m_sBuffer  = DataToString_();
-					m_uCaret   = m_sBuffer.size();
+					m_uCaret   = m_sBuffer.size();   // caret = 끝.
+					m_bSelected = false;
+					m_nBlinkCnt = 0;
 				}
 			}
 			else if (m_bFocused)
 			{
 				StringToData_();
 				m_bFocused = false;
+				m_bSelected = false;
 			}
 		}
 
-		// 배경 + 테두리. hover/focused 색상 분기. focused 면 2px 두께.
+		// 배경 + 테두리. focused 면 BorderFocusColor + 2px.
 		_ctx.FillRect(abs_, m_BgColor);
-		const _DX_COLOR bdrCol_ = m_bFocused ? m_BorderFocusColor
-		                       : (bHover_   ? m_BorderFocusColor : m_BorderColor);
-		_ctx.DrawRectOutline(abs_, bdrCol_, m_bFocused ? 2.0f : 1.0f);
+		_ctx.DrawRectOutline(abs_,
+			m_bFocused ? m_BorderFocusColor : m_BorderColor,
+			m_bFocused ? 2.0f : 1.0f);
 
 		// 표시 문자열 — 포커스 시 편집 버퍼, 아니면 바인딩 변수 값.
 		const std::string sShow_ = m_bFocused ? m_sBuffer : DataToString_();
+		const float fFontH_ = _ctx.GetFontHeight(m_hFont, m_fFontScale);
+		const float fTextY_ = abs_.y + (abs_.h - fFontH_) * 0.5f;
+		float fTextW_ = 0.0f;
 		if (!sShow_.empty() && m_hFont != INVALID_FONT)
 		{
 			const std::wstring sW_ = U8ToW_(sShow_);
+			const _DX_SIZE szText_ = _ctx.MeasureText(m_hFont, sW_.c_str(), m_fFontScale);
+			fTextW_ = szText_.w;
 			_ctx.DrawText(m_hFont,
-				_DX_POINT(abs_.x + 4.0f, abs_.y + (abs_.h - _ctx.GetFontHeight(
-					m_hFont, m_fFontScale)) * 0.5f),
+				_DX_POINT(abs_.x + 4.0f, fTextY_),
 				sW_.c_str(), m_TextColor, m_fFontScale);
+		}
+		// caret blink — focused 시 60 frame 주기 (30 frame 보임, 30 frame 숨김).
+		// 두께 2.5px, BorderFocusColor (파랑) 로 명확. caret X = buffer 끝.
+		if (m_bFocused)
+		{
+			m_nBlinkCnt = (m_nBlinkCnt + 1) % 60;
+			if (m_nBlinkCnt < 30)
+			{
+				_ctx.FillRect(_DX_RECT(abs_.x + 4.0f + fTextW_, fTextY_, 2.5f, fFontH_),
+					m_BorderFocusColor);
+			}
 		}
 
 		// 키 입력 처리(포커스 시).
