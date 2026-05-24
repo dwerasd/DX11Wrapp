@@ -21,6 +21,7 @@ namespace dx11
 		_DX_COLOR   m_BoxBorderColor;
 		float       m_fBoxSize;     // 박스 한 변 (픽셀)
 		std::function<void(bool)> m_OnChange;   // 토글 직후 새 값으로 호출
+		bool        m_bPressedInside{ false };  // LMB press 시 hit 안인지 — release 시 toggle 판정
 
 	public:
 		C_DX_CHECKBOX()

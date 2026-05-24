@@ -79,13 +79,23 @@ namespace dx11
 				sW_.c_str(), m_TextColor, m_fFontScale);
 		}
 
-		// 클릭 — 박스 또는 라벨 영역 클릭 시 토글. onChange 콜백 호출.
-		if (m_bEnabled && m_pData != nullptr
-			&& _ctx.IsMouseHovered(hit_)
-			&& _ctx.IsMouseReleased(DX_MOUSE_LEFT))
+		// 클릭 — press 와 release 둘 다 hit 안일 때만 토글 (drag-out 무시).
+		if (m_bEnabled && m_pData != nullptr)
 		{
-			*m_pData = !(*m_pData);
-			if (m_OnChange) { m_OnChange(*m_pData); }
+			const bool bHov_ = _ctx.IsMouseHovered(hit_);
+			if (_ctx.IsMouseClicked(DX_MOUSE_LEFT) && bHov_)
+			{
+				m_bPressedInside = true;
+			}
+			if (_ctx.IsMouseReleased(DX_MOUSE_LEFT))
+			{
+				if (m_bPressedInside && bHov_)
+				{
+					*m_pData = !(*m_pData);
+					if (m_OnChange) { m_OnChange(*m_pData); }
+				}
+				m_bPressedInside = false;
+			}
 		}
 	}
 
