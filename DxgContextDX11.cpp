@@ -26,6 +26,7 @@ namespace dx11
 	{
 		for (int i = 0; i < 3; ++i) { m_bDown[i] = false; m_bPrevDown[i] = false; }
 		for (int i = 0; i < 256; ++i) { m_bKey[i] = false; }
+		m_bCapture = false;
 	}
 
 	C_DRAW_CONTEXT_DX11::~C_DRAW_CONTEXT_DX11()
@@ -300,18 +301,21 @@ namespace dx11
 	//------------------------------------------------------------------------------------------------
 	bool C_DRAW_CONTEXT_DX11::IsMouseClicked(dxgui::E_DXG_MOUSE_BUTTON _btn) const
 	{
+		if (m_bCapture) { return false; }
 		const int i = static_cast<int>(_btn);
 		return (i >= 0 && i < 3) && !m_bPrevDown[i] && m_bDown[i];
 	}
 
 	bool C_DRAW_CONTEXT_DX11::IsMouseDown(dxgui::E_DXG_MOUSE_BUTTON _btn) const
 	{
+		if (m_bCapture) { return false; }
 		const int i = static_cast<int>(_btn);
 		return (i >= 0 && i < 3) && m_bDown[i];
 	}
 
 	bool C_DRAW_CONTEXT_DX11::IsMouseReleased(dxgui::E_DXG_MOUSE_BUTTON _btn) const
 	{
+		if (m_bCapture) { return false; }
 		const int i = static_cast<int>(_btn);
 		return (i >= 0 && i < 3) && m_bPrevDown[i] && !m_bDown[i];
 	}

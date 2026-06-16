@@ -36,6 +36,7 @@ namespace dx11
 		std::wstring m_sTextInput;
 		float m_fWheel;
 		std::wstring m_sComposition;	// IME 조합중(호스트 설정)
+		bool m_bCapture;		// 모달 입력 캡처
 		std::vector<dxgui::_DXG_RECT> m_vClipStack;
 
 		void rawFill_(float _x, float _y, float _w, float _h, uint32_t _argb);
@@ -84,8 +85,13 @@ namespace dx11
 		void FillCircle(dxgui::_DXG_POINT _c, float _fRadius, dxgui::_DXG_COLOR _color) override;
 		void DrawCircle(dxgui::_DXG_POINT _c, float _fRadius, dxgui::_DXG_COLOR _color, float _fThickness) override;
 
+		void SetInputCapture(bool _bCapture) override { m_bCapture = _bCapture; }
+
 		dxgui::_DXG_POINT GetMousePos() const override { return m_Mouse; }
-		bool IsMouseHovered(dxgui::_DXG_RECT _rect) const override { return _rect.Contains(m_Mouse.x, m_Mouse.y); }
+		bool IsMouseHovered(dxgui::_DXG_RECT _rect) const override
+		{
+			return !m_bCapture && _rect.Contains(m_Mouse.x, m_Mouse.y);
+		}
 		bool IsMouseClicked(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
 		bool IsMouseDown(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
 		bool IsMouseReleased(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
@@ -94,7 +100,7 @@ namespace dx11
 		{
 			return m_sTextInput.empty() ? nullptr : m_sTextInput.c_str();
 		}
-		float GetWheelDelta() const override { return m_fWheel; }
+		float GetWheelDelta() const override { return m_bCapture ? 0.0f : m_fWheel; }
 		const wchar_t* PollComposition() const override
 		{
 			return m_sComposition.empty() ? nullptr : m_sComposition.c_str();
