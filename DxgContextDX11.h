@@ -32,11 +32,17 @@ namespace dx11
 		dxgui::_DXG_POINT m_Mouse;
 		bool m_bDown[3];
 		bool m_bPrevDown[3];
-		bool m_bKey[256];
+		bool m_bKey[256];		// 에지(NewFrame 클리어)
+		bool m_bKeyHeld[256];	// 레벨(KEYUP 까지 유지 — Ctrl/Shift)
+		std::wstring m_sClipboard;	// GetClipboardText 반환 캐시
 		std::wstring m_sTextInput;
 		float m_fWheel;
 		std::wstring m_sComposition;	// IME 조합중(호스트 설정)
 		bool m_bCapture;		// 모달 입력 캡처
+		int  m_nFrame;
+		int  m_nLastLDownFrame;
+		dxgui::_DXG_POINT m_LastLDownPos;
+		bool m_bDblClick;
 		std::vector<dxgui::_DXG_RECT> m_vClipStack;
 
 		void rawFill_(float _x, float _y, float _w, float _h, uint32_t _argb);
@@ -93,9 +99,19 @@ namespace dx11
 			return !m_bCapture && _rect.Contains(m_Mouse.x, m_Mouse.y);
 		}
 		bool IsMouseClicked(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
+		bool IsMouseDoubleClicked(dxgui::E_DXG_MOUSE_BUTTON _btn) const override
+		{
+			return !m_bCapture && (_btn == dxgui::DXG_MOUSE_LEFT) && m_bDblClick;
+		}
 		bool IsMouseDown(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
 		bool IsMouseReleased(dxgui::E_DXG_MOUSE_BUTTON _btn) const override;
 		bool IsKeyPressed(int _nVK) const override;
+		bool IsKeyDown(int _nVK) const override
+		{
+			return (_nVK >= 0 && _nVK < 256) && m_bKeyHeld[_nVK];
+		}
+		void SetClipboardText(const wchar_t* _pText) override;
+		const wchar_t* GetClipboardText() override;
 		const wchar_t* PollTextInput() const override
 		{
 			return m_sTextInput.empty() ? nullptr : m_sTextInput.c_str();
