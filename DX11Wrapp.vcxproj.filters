@@ -29,6 +29,9 @@
     <ClInclude Include="DX11Font.h">
       <Filter>렌더링</Filter>
     </ClInclude>
+    <ClInclude Include="DxgContextDX11.h">
+      <Filter>렌더링</Filter>
+    </ClInclude>
     <!-- 텍스처 헤더 -->
     <ClInclude Include="DX11Texture.h">
       <Filter>텍스처</Filter>
@@ -49,6 +52,9 @@
       <Filter>렌더링</Filter>
     </ClCompile>
     <ClCompile Include="DX11Font.cpp">
+      <Filter>렌더링</Filter>
+    </ClCompile>
+    <ClCompile Include="DxgContextDX11.cpp">
       <Filter>렌더링</Filter>
     </ClCompile>
     <!-- 텍스처 소스 -->
