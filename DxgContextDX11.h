@@ -35,6 +35,7 @@ namespace dx11
 		bool m_bKey[256];
 		std::wstring m_sTextInput;
 		float m_fWheel;
+		std::wstring m_sComposition;	// IME 조합중(호스트 설정)
 		std::vector<dxgui::_DXG_RECT> m_vClipStack;
 
 		void rawFill_(float _x, float _y, float _w, float _h, uint32_t _argb);
@@ -59,6 +60,7 @@ namespace dx11
 		void SetKey(int _nVK, bool _bDown);
 		void PushTextInput(const wchar_t* _pText);
 		void AddWheel(float _fNotches) { m_fWheel += _fNotches; }
+		void SetComposition(const wchar_t* _p) { m_sComposition = (_p != nullptr) ? _p : L""; }
 		void NewFrame();	// prevDown=down, 키/텍스트/휠 클리어
 
 		// ── dxgui::IDrawContext ──
@@ -93,6 +95,10 @@ namespace dx11
 			return m_sTextInput.empty() ? nullptr : m_sTextInput.c_str();
 		}
 		float GetWheelDelta() const override { return m_fWheel; }
+		const wchar_t* PollComposition() const override
+		{
+			return m_sComposition.empty() ? nullptr : m_sComposition.c_str();
+		}
 	};
 
 } // namespace dx11
