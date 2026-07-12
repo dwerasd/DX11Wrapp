@@ -12,7 +12,7 @@
 
 namespace dx11
 {
-	// 렌더러 무관 증명(P4) — DX11 백엔드가 dxgui::IDrawContext 의 전 순수가상을 구현(구상 클래스).
+	// 렌더러 무관 증명(P4) - DX11 백엔드가 dxgui::IDrawContext 의 전 순수가상을 구현(구상 클래스).
 	// 위젯/차트가 소비하는 동일 추상을 D2D 와 DX11 양쪽에서 구현 가능함을 컴파일타임 보증.
 	static_assert(!std::is_abstract<C_DRAW_CONTEXT_DX11>::value,
 		"C_DRAW_CONTEXT_DX11 must fully implement dxgui::IDrawContext");
@@ -94,7 +94,7 @@ namespace dx11
 		}
 	}
 
-	// 클립보드 — CF_UNICODETEXT. D2D 백엔드와 동일 동작(렌더러 무관 호스트 서비스).
+	// 클립보드 - CF_UNICODETEXT. D2D 백엔드와 동일 동작(렌더러 무관 호스트 서비스).
 	void C_DRAW_CONTEXT_DX11::SetClipboardText(const wchar_t* _pText)
 	{
 		if (_pText == nullptr || !::OpenClipboard(nullptr)) { return; }
@@ -145,7 +145,7 @@ namespace dx11
 	}
 
 	//------------------------------------------------------------------------------------------------
-	// 내부 — 축정렬 quad / 스캔라인 / 시저
+	// 내부 - 축정렬 quad / 스캔라인 / 시저
 	//------------------------------------------------------------------------------------------------
 	void C_DRAW_CONTEXT_DX11::rawFill_(float _x, float _y, float _w, float _h, uint32_t _argb)
 	{
@@ -154,7 +154,7 @@ namespace dx11
 		m_pEngine->Draw(m_hWhiteTex, _x, _y, _w, _h, 0.0f, 0.0f, 1.0f, 1.0f, m_fDepth, _argb);
 	}
 
-	// 삼각형 스캔라인 fill — 정점 y 정렬 후 행별 수평 스팬을 quad 로.
+	// 삼각형 스캔라인 fill - 정점 y 정렬 후 행별 수평 스팬을 quad 로.
 	void C_DRAW_CONTEXT_DX11::fillTri_(const dxgui::_DXG_POINT& _a, const dxgui::_DXG_POINT& _b,
 		const dxgui::_DXG_POINT& _c, uint32_t _argb)
 	{
@@ -162,7 +162,7 @@ namespace dx11
 		if (p1.y < p0.y) { std::swap(p0, p1); }
 		if (p2.y < p0.y) { std::swap(p0, p2); }
 		if (p2.y < p1.y) { std::swap(p1, p2); }
-		if (p2.y - p0.y < 0.5f) { return; }	// 퇴화(수평) — 무시
+		if (p2.y - p0.y < 0.5f) { return; }	// 퇴화(수평) - 무시
 
 		const auto edgeX = [](const dxgui::_DXG_POINT& _pa, const dxgui::_DXG_POINT& _pb, float _fy) -> float
 		{
@@ -284,7 +284,7 @@ namespace dx11
 		{
 			rawFill_(_a.x - t * 0.5f, (std::min)(_a.y, _b.y), t, std::fabs(dy), c);
 		}
-		else								// 각진 선 — DDA quad 스텝(축정렬 엔진 한계 근사)
+		else								// 각진 선 - DDA quad 스텝(축정렬 엔진 한계 근사)
 		{
 			const float len = std::sqrt(dx * dx + dy * dy);
 			const int steps = static_cast<int>(std::ceil(len));
@@ -293,6 +293,66 @@ namespace dx11
 				const float f = static_cast<float>(i) / static_cast<float>(steps);
 				const float x = _a.x + dx * f;
 				const float y = _a.y + dy * f;
+				rawFill_(x - t * 0.5f, y - t * 0.5f, t, t, c);
+			}
+		}
+	}
+
+	// 라운드 사각형 fill - 중앙 밴드 + 상/하 코너 밴드의 행별 수평 스팬(스캔라인).
+	// 반경은 min(w,h)/2 로 클램프 - 그 값이면 pill(캡슐). 축정렬 엔진이라 코너는 계단 근사.
+	void C_DRAW_CONTEXT_DX11::FillRoundRect(dxgui::_DXG_RECT _rect, float _fRadius, dxgui::_DXG_COLOR _color)
+	{
+		if (_rect.w <= 0.0f || _rect.h <= 0.0f) { return; }
+		const float fMax = 0.5f * ((_rect.w < _rect.h) ? _rect.w : _rect.h);
+		const float fR = (_fRadius > fMax) ? fMax : _fRadius;
+		const uint32_t c = _color.argb;
+		if (fR < 0.5f) { rawFill_(_rect.x, _rect.y, _rect.w, _rect.h, c); return; }
+
+		rawFill_(_rect.x, _rect.y + fR, _rect.w, _rect.h - 2.0f * fR, c);	// 중앙 밴드(전폭)
+
+		const int nRows = static_cast<int>(std::ceil(fR));
+		for (int i = 0; i < nRows; ++i)
+		{
+			const float fy = static_cast<float>(i) + 0.5f;		// 코너 밴드 내 행 중심
+			const float dy = fR - fy;							// 코너 원 중심 기준 수직거리
+			const float v  = fR * fR - dy * dy;
+			const float hw = (v > 0.0f) ? std::sqrt(v) : 0.0f;	// 코너 원 수평 반폭
+			const float x0 = _rect.x + fR - hw;
+			const float w0 = _rect.w - 2.0f * (fR - hw);
+			rawFill_(x0, _rect.y + static_cast<float>(i), w0, 1.0f, c);						// 상단 행
+			rawFill_(x0, _rect.y + _rect.h - static_cast<float>(i) - 1.0f, w0, 1.0f, c);		// 하단 행
+		}
+	}
+
+	// 라운드 사각형 외곽선 - 직선 4변(코너 제외) + 사분원 4개 샘플(DrawCircle 과 동일 근사).
+	void C_DRAW_CONTEXT_DX11::DrawRoundRectOutline(dxgui::_DXG_RECT _rect, float _fRadius,
+		dxgui::_DXG_COLOR _color, float _fThickness)
+	{
+		if (_rect.w <= 0.0f || _rect.h <= 0.0f) { return; }
+		const float t = (_fThickness < 1.0f) ? 1.0f : _fThickness;
+		const float fMax = 0.5f * ((_rect.w < _rect.h) ? _rect.w : _rect.h);
+		const float fR = (_fRadius > fMax) ? fMax : _fRadius;
+		if (fR < 0.5f) { this->DrawRectOutline(_rect, _color, _fThickness); return; }
+
+		const uint32_t c = _color.argb;
+		rawFill_(_rect.x + fR, _rect.y, _rect.w - 2.0f * fR, t, c);						// 상
+		rawFill_(_rect.x + fR, _rect.y + _rect.h - t, _rect.w - 2.0f * fR, t, c);		// 하
+		rawFill_(_rect.x, _rect.y + fR, t, _rect.h - 2.0f * fR, c);						// 좌
+		rawFill_(_rect.x + _rect.w - t, _rect.y + fR, t, _rect.h - 2.0f * fR, c);		// 우
+
+		// 코너 4개(좌상/우상/우하/좌하) - y 하향 좌표계 기준 사분원 시작각.
+		const float cx[4] = { _rect.x + fR, _rect.x + _rect.w - fR, _rect.x + _rect.w - fR, _rect.x + fR };
+		const float cy[4] = { _rect.y + fR, _rect.y + fR, _rect.y + _rect.h - fR, _rect.y + _rect.h - fR };
+		const float a0[4] = { 3.1415927f, 4.7123890f, 0.0f, 1.5707963f };
+		int n = static_cast<int>(1.5707963f * fR);
+		if (n < 4) { n = 4; }
+		for (int k = 0; k < 4; ++k)
+		{
+			for (int i = 0; i <= n; ++i)
+			{
+				const float a = a0[k] + 1.5707963f * static_cast<float>(i) / static_cast<float>(n);
+				const float x = cx[k] + fR * std::cos(a);
+				const float y = cy[k] + fR * std::sin(a);
 				rawFill_(x - t * 0.5f, y - t * 0.5f, t, t, c);
 			}
 		}

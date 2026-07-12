@@ -1,5 +1,5 @@
 ﻿// DxgContextDX11.h: dxgui::IDrawContext 의 DX11 백엔드 구현(C_DRAW_CONTEXT_DX11).
-// 위젯/차트가 D2D 와 동일한 추상으로 DX11 렌더 — 렌더러 무관 증명(P4 스캐폴드).
+// 위젯/차트가 D2D 와 동일한 추상으로 DX11 렌더 - 렌더러 무관 증명(P4 스캐폴드).
 // 도형=C_DX11_SPRITE_ENGINE 의 축정렬 tinted quad(흰 1x1 텍스처) 분해, 텍스트=C_DX11_FONT.
 //   선=축정렬 FillRect / 각진 선=DDA quad 스텝. 삼각형/quad=스캔라인 fill. 원=스캔라인/링 샘플.
 //   clip=스택 + RSSetScissorRects(엔진 rasterizer ScissorEnable 시 실동작).
@@ -33,7 +33,7 @@ namespace dx11
 		bool m_bDown[3];
 		bool m_bPrevDown[3];
 		bool m_bKey[256];		// 에지(NewFrame 클리어)
-		bool m_bKeyHeld[256];	// 레벨(KEYUP 까지 유지 — Ctrl/Shift)
+		bool m_bKeyHeld[256];	// 레벨(KEYUP 까지 유지 - Ctrl/Shift)
 		std::wstring m_sClipboard;	// GetClipboardText 반환 캐시
 		std::wstring m_sTextInput;
 		float m_fWheel;
@@ -83,6 +83,8 @@ namespace dx11
 		void FillRect(dxgui::_DXG_RECT _rect, dxgui::_DXG_COLOR _color) override;
 		void DrawRectOutline(dxgui::_DXG_RECT _rect, dxgui::_DXG_COLOR _color, float _fThickness) override;
 		void DrawLine(dxgui::_DXG_POINT _a, dxgui::_DXG_POINT _b, dxgui::_DXG_COLOR _color, float _fThickness) override;
+		void FillRoundRect(dxgui::_DXG_RECT _rect, float _fRadius, dxgui::_DXG_COLOR _color) override;
+		void DrawRoundRectOutline(dxgui::_DXG_RECT _rect, float _fRadius, dxgui::_DXG_COLOR _color, float _fThickness) override;
 		void PushClipRect(dxgui::_DXG_RECT _rect) override;
 		void PopClipRect() override;
 
